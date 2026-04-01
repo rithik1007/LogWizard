@@ -1,2 +1,2 @@
 # LogWizard
- AI which reads the logs and tells us the issue and proposes a solution :)
+ AI which reads the infra logs from applications such as Splunk and tells us the issue and proposes a solution :)

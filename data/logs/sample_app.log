@@ -1,0 +1,51 @@
+2026-03-31T14:00:01.123 INFO [api-gateway] Request received: GET /api/v1/orders from 10.0.1.42
+2026-03-31T14:00:01.234 INFO [order-service] Processing order query for user_id=8821
+2026-03-31T14:00:01.456 INFO [db-pool] Connection acquired from pool (active=12/50)
+2026-03-31T14:00:02.001 INFO [order-service] Returned 24 orders for user_id=8821
+2026-03-31T14:05:00.100 INFO [scheduler] Running scheduled job: inventory-sync
+2026-03-31T14:05:02.300 WARN [inventory-service] Slow response from warehouse API: 2340ms (threshold: 2000ms)
+2026-03-31T14:05:05.600 WARN [inventory-service] Slow response from warehouse API: 3100ms (threshold: 2000ms)
+2026-03-31T14:05:08.900 ERROR [inventory-service] Timeout waiting for warehouse API response after 5000ms
+2026-03-31T14:05:09.001 ERROR [inventory-service] Failed to sync inventory for warehouse=US-EAST-1: TimeoutException
+2026-03-31T14:05:09.010 WARN [circuit-breaker] Circuit OPEN for warehouse-api (failures=3, threshold=3)
+2026-03-31T14:05:09.100 ERROR [scheduler] Job inventory-sync failed: CircuitBreakerOpenException
+2026-03-31T14:10:00.050 INFO [api-gateway] Request received: POST /api/v1/orders from 10.0.1.55
+2026-03-31T14:10:00.200 INFO [order-service] Creating new order for user_id=4412
+2026-03-31T14:10:00.350 INFO [db-pool] Connection acquired from pool (active=15/50)
+2026-03-31T14:10:01.100 INFO [order-service] Order ORD-99812 created successfully
+2026-03-31T14:15:00.100 INFO [scheduler] Running scheduled job: inventory-sync
+2026-03-31T14:15:00.200 WARN [circuit-breaker] Circuit still OPEN for warehouse-api (cooldown remaining: 45s)
+2026-03-31T14:15:00.210 ERROR [scheduler] Job inventory-sync failed: CircuitBreakerOpenException
+2026-03-31T14:20:00.100 INFO [scheduler] Running scheduled job: inventory-sync
+2026-03-31T14:20:01.300 INFO [circuit-breaker] Circuit HALF-OPEN for warehouse-api, testing...
+2026-03-31T14:20:03.500 WARN [inventory-service] Slow response from warehouse API: 2200ms (threshold: 2000ms)
+2026-03-31T14:20:03.510 INFO [circuit-breaker] Circuit CLOSED for warehouse-api (probe succeeded)
+2026-03-31T14:20:05.800 INFO [inventory-service] Inventory sync completed for warehouse=US-EAST-1 (234 items updated)
+2026-03-31T14:25:00.100 INFO [api-gateway] Request received: GET /api/v1/products from 10.0.1.30
+2026-03-31T14:25:00.500 INFO [product-service] Cache HIT for product catalog (ttl remaining: 1200s)
+2026-03-31T14:30:00.100 INFO [health-check] All services healthy: api-gateway=OK, order-service=OK, inventory-service=OK, db=OK
+2026-03-31T14:35:12.100 ERROR [db-pool] Connection pool exhausted! active=50/50, waiting=12
+2026-03-31T14:35:12.200 ERROR [order-service] Failed to acquire DB connection: PoolExhaustedException (waited 30000ms)
+2026-03-31T14:35:12.210 ERROR [api-gateway] 503 Service Unavailable: POST /api/v1/orders — upstream timeout
+2026-03-31T14:35:15.300 ERROR [db-pool] Connection pool exhausted! active=50/50, waiting=18
+2026-03-31T14:35:15.400 ERROR [payment-service] Failed to process payment for ORD-99815: PoolExhaustedException
+2026-03-31T14:35:15.500 ERROR [api-gateway] 503 Service Unavailable: POST /api/v1/payments — upstream timeout
+2026-03-31T14:35:18.100 WARN [db-pool] Detected 8 leaked connections (idle > 300s) — reclaiming
+2026-03-31T14:35:18.200 INFO [db-pool] Reclaimed 8 leaked connections, active=42/50, waiting=5
+2026-03-31T14:35:20.100 INFO [db-pool] Pool recovered: active=22/50, waiting=0
+2026-03-31T14:35:20.200 INFO [order-service] Resumed processing orders normally
+2026-03-31T14:40:00.100 INFO [deploy-agent] Deployment started: order-service v2.14.3 → v2.15.0
+2026-03-31T14:40:30.500 INFO [deploy-agent] Rolling update: 1/4 pods updated
+2026-03-31T14:41:00.100 INFO [deploy-agent] Rolling update: 2/4 pods updated
+2026-03-31T14:41:30.200 INFO [deploy-agent] Rolling update: 3/4 pods updated
+2026-03-31T14:41:32.100 ERROR [order-service] NullPointerException in OrderController.createOrder(OrderController.java:142)
+2026-03-31T14:41:32.110 ERROR [order-service] Caused by: Missing required field 'shipping_address' in OrderRequest DTO
+2026-03-31T14:41:32.200 ERROR [api-gateway] 500 Internal Server Error: POST /api/v1/orders
+2026-03-31T14:41:35.100 ERROR [order-service] NullPointerException in OrderController.createOrder(OrderController.java:142)
+2026-03-31T14:41:35.300 WARN [health-check] order-service health check FAILED on pod order-service-v2150-abc12
+2026-03-31T14:41:40.100 INFO [deploy-agent] Rollback triggered: order-service v2.15.0 → v2.14.3 (health check failures)
+2026-03-31T14:42:00.500 INFO [deploy-agent] Rollback complete: all pods running order-service v2.14.3
+2026-03-31T14:42:01.100 INFO [health-check] All services healthy: api-gateway=OK, order-service=OK, inventory-service=OK, db=OK
+2026-03-31T14:45:00.100 INFO [api-gateway] Request received: GET /api/v1/orders from 10.0.1.42
+2026-03-31T14:45:00.300 INFO [order-service] Processing order query for user_id=8821
+2026-03-31T14:45:01.100 INFO [order-service] Returned 24 orders for user_id=8821

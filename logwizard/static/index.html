@@ -447,20 +447,52 @@
                     return;
                 }
 
-                // Stream the response
+                // Stream the response with typewriter effect
                 const reader = res.body.getReader();
                 const decoder = new TextDecoder();
                 const msgEl = appendMessage('', 'assistant');
                 let fullText = '';
+                let displayedLen = 0;
+                let renderTimer = null;
+
+                const CHAR_DELAY = 8; // ms per character
+
+                function renderNext() {
+                    if (displayedLen < fullText.length) {
+                        // Advance by a few chars at a time for smoothness
+                        const step = Math.max(1, Math.floor((fullText.length - displayedLen) / 80));
+                        displayedLen = Math.min(displayedLen + step, fullText.length);
+                        msgEl.innerHTML = renderMarkdown(fullText.slice(0, displayedLen));
+                        scrollToBottom();
+                        renderTimer = setTimeout(renderNext, CHAR_DELAY);
+                    } else {
+                        renderTimer = null;
+                    }
+                }
 
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
                     const chunk = decoder.decode(value, { stream: true });
                     fullText += chunk;
-                    msgEl.innerHTML = renderMarkdown(fullText);
-                    scrollToBottom();
+                    if (!renderTimer) renderNext();
                 }
+
+                // Flush any remaining text after stream ends
+                await new Promise(resolve => {
+                    function flushRemaining() {
+                        if (displayedLen < fullText.length) {
+                            const step = Math.max(1, Math.floor((fullText.length - displayedLen) / 40));
+                            displayedLen = Math.min(displayedLen + step, fullText.length);
+                            msgEl.innerHTML = renderMarkdown(fullText.slice(0, displayedLen));
+                            scrollToBottom();
+                            setTimeout(flushRemaining, CHAR_DELAY);
+                        } else {
+                            resolve();
+                        }
+                    }
+                    flushRemaining();
+                });
 
                 if (!fullText) {
                     msgEl.innerHTML = '<em>No response generated.</em>';
@@ -491,7 +523,11 @@
         }
 
         function scrollToBottom() {
-            chatArea.scrollTop = chatArea.scrollHeight;
+            // Only auto-scroll if user is near the bottom (within 150px)
+            const distFromBottom = chatArea.scrollHeight - chatArea.scrollTop - chatArea.clientHeight;
+            if (distFromBottom < 150) {
+                chatArea.scrollTop = chatArea.scrollHeight;
+            }
         }
 
         // ── Minimal Markdown renderer ────────────

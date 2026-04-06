@@ -1,48 +1,90 @@
-"""Splunk log source connector using the official Splunk SDK."""
+"""Splunk log source connector — supports both REST API (token) and SDK (user/pass)."""
 
 from __future__ import annotations
 
 import json
 from datetime import datetime
 
-import splunklib.client as splunk_client
-import splunklib.results as splunk_results
+import httpx
 
 from logwizard.config import settings
 from logwizard.sources.base import LogEntry, LogSource
 
 
 class SplunkSource(LogSource):
+    """Connect to Splunk via the REST API (token auth over port 443) or the SDK."""
+
     def __init__(
         self,
         host: str | None = None,
         port: int | None = None,
         username: str | None = None,
         password: str | None = None,
-        index: str = "main",
+        token: str | None = None,
+        index: str | None = None,
+        sourcetype: str | None = None,
     ):
         self._host = host or settings.splunk_host
         self._port = port or settings.splunk_port
         self._username = username or settings.splunk_username
         self._password = password or settings.splunk_password
-        self._index = index
-        self._service: splunk_client.Service | None = None
+        self._token = token or settings.splunk_token
+        self._index = index or settings.splunk_index
+        self._sourcetype = sourcetype or settings.splunk_sourcetype
 
-    def _connect(self) -> splunk_client.Service:
-        if self._service is None:
-            self._service = splunk_client.connect(
-                host=self._host,
-                port=self._port,
-                username=self._username,
-                password=self._password,
-                scheme=settings.splunk_scheme,
-                autologin=True,
-            )
-        return self._service
+    # ── REST API helpers (token auth) ─────────────────────────────
+
+    def _base_url(self) -> str:
+        scheme = settings.splunk_scheme or "https"
+        if self._port in (443, 8089):
+            return f"{scheme}://{self._host}"
+        return f"{scheme}://{self._host}:{self._port}"
+
+    def _http_client(self) -> httpx.Client:
+        return httpx.Client(
+            base_url=self._base_url(),
+            headers={
+                "Authorization": f"Bearer {self._token}",
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            verify=False,
+            timeout=httpx.Timeout(60.0, connect=15.0),
+        )
+
+    # ── SDK fallback (user/pass) ──────────────────────────────────
+
+    def _connect_sdk(self):
+        import splunklib.client as splunk_client
+
+        return splunk_client.connect(
+            host=self._host,
+            port=self._port,
+            username=self._username,
+            password=self._password,
+            scheme=settings.splunk_scheme,
+            autologin=True,
+        )
+
+    # ── Public interface ──────────────────────────────────────────
 
     def health_check(self) -> bool:
+        if self._token:
+            return self._health_check_rest()
+        return self._health_check_sdk()
+
+    def _health_check_rest(self) -> bool:
         try:
-            svc = self._connect()
+            with self._http_client() as client:
+                resp = client.get(
+                    "/services/server/info", params={"output_mode": "json"}
+                )
+                return resp.status_code == 200
+        except Exception:
+            return False
+
+    def _health_check_sdk(self) -> bool:
+        try:
+            svc = self._connect_sdk()
             svc.indexes.list()
             return True
         except Exception:
@@ -55,12 +97,87 @@ class SplunkSource(LogSource):
         search_query: str | None = None,
         max_results: int = 500,
     ) -> list[LogEntry]:
-        svc = self._connect()
+        if self._token:
+            return self._query_rest(start_time, end_time, search_query, max_results)
+        return self._query_sdk(start_time, end_time, search_query, max_results)
 
-        # Build SPL query
-        base = f'search index="{self._index}"'
+    # ── REST API query ────────────────────────────────────────────
+
+    def _query_rest(
+        self,
+        start_time: datetime,
+        end_time: datetime,
+        search_query: str | None = None,
+        max_results: int = 500,
+    ) -> list[LogEntry]:
+        # Build optimised SPL:
+        #   - Filter by index + sourcetype first (most selective)
+        #   - Append user search terms
+        #   - Sort newest-first so the most recent events come back
+        #   - Limit via head to avoid pulling more than needed
+        spl = f'search index="{self._index}"'
+        if self._sourcetype:
+            spl += f' sourcetype="{self._sourcetype}"'
         if search_query:
-            base += f" {search_query}"
+            spl += f" {search_query}"
+        spl += f" | sort - _time | head {max_results}"
+
+        params = {
+            "search": spl,
+            "earliest_time": start_time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "latest_time": end_time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "count": str(max_results),
+            "output_mode": "json",
+        }
+
+        with self._http_client() as client:
+            resp = client.post(
+                "/services/search/jobs/export",
+                data=params,
+            )
+            resp.raise_for_status()
+
+        entries: list[LogEntry] = []
+        for line in resp.text.strip().splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+            # The export endpoint returns one JSON object per line.
+            # Each object may contain "result" (single) or "results" (batch).
+            if "result" in payload:
+                entries.append(self._to_log_entry(payload["result"]))
+            elif "results" in payload and isinstance(payload["results"], list):
+                for event in payload["results"]:
+                    entries.append(self._to_log_entry(event))
+
+            if len(entries) >= max_results:
+                break
+
+        return entries[:max_results]
+
+    # ── SDK query ─────────────────────────────────────────────────
+
+    def _query_sdk(
+        self,
+        start_time: datetime,
+        end_time: datetime,
+        search_query: str | None = None,
+        max_results: int = 500,
+    ) -> list[LogEntry]:
+        import splunklib.results as splunk_results
+
+        svc = self._connect_sdk()
+
+        spl = f'search index="{self._index}"'
+        if self._sourcetype:
+            spl += f' sourcetype="{self._sourcetype}"'
+        if search_query:
+            spl += f" {search_query}"
 
         kwargs = {
             "earliest_time": start_time.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -69,7 +186,7 @@ class SplunkSource(LogSource):
             "output_mode": "json",
         }
 
-        job = svc.jobs.oneshot(base, **kwargs)
+        job = svc.jobs.oneshot(spl, **kwargs)
         reader = splunk_results.JSONResultsReader(job)
 
         entries: list[LogEntry] = []
@@ -80,6 +197,8 @@ class SplunkSource(LogSource):
                 entries.append(self._to_log_entry(result))
 
         return entries
+
+    # ── Helpers ───────────────────────────────────────────────────
 
     @staticmethod
     def _to_log_entry(raw_event: dict) -> LogEntry:

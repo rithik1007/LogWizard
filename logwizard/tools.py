@@ -5,6 +5,7 @@ LangChain tools that the agent uses to interact with log sources and the knowled
 from __future__ import annotations
 
 import json
+from collections import Counter
 from datetime import datetime, timedelta
 
 from langchain_core.tools import tool
@@ -90,8 +91,10 @@ def query_recent_errors(minutes: int = 60, max_results: int = 100) -> str:
     """
     end = datetime.now()
     start = end - timedelta(minutes=minutes)
-    entries = _get_source().query(start, end, max_results=max_results)
+    entries = _get_source().query(start, end, search_query="error OR fatal OR exception", max_results=max_results)
     errors = [e for e in entries if e.level in ("ERROR", "FATAL", "WARN")]
+    if not errors:
+        errors = entries  # return whatever we got if level filtering removed everything
     return _entries_to_text(errors)
 
 
@@ -235,12 +238,264 @@ def knowledge_base_stats() -> str:
     return json.dumps(stats, indent=2)
 
 
+# ── Deep analysis tools ───────────────────────────────────────────
+
+
+@tool
+def analyze_error_context(
+    error_keyword: str,
+    minutes: int = 30,
+    context_window_seconds: int = 60,
+    max_errors: int = 10,
+) -> str:
+    """Fetch errors matching a keyword and retrieve surrounding log context.
+
+    For each error found, this tool also fetches logs from a time window
+    around it (before + after) so you can see what led to the error and
+    what happened afterwards. This is essential for understanding error
+    cascades and root causes.
+
+    Args:
+        error_keyword: Keyword to search for in error logs (e.g. "NullPointerException", "timeout", "OOM").
+        minutes: Look-back window in minutes (default 30).
+        context_window_seconds: Seconds of context to fetch before and after each error (default 60).
+        max_errors: Maximum number of distinct errors to analyse (default 10).
+    """
+    end = datetime.now()
+    start = end - timedelta(minutes=minutes)
+
+    # Fetch errors matching the keyword
+    entries = _get_source().query(start, end, search_query=error_keyword, max_results=500)
+    errors = [e for e in entries if e.level in ("ERROR", "FATAL", "WARN")]
+
+    if not errors:
+        # Fall back: maybe the keyword itself is the filter
+        errors = entries[:max_errors] if entries else []
+
+    if not errors:
+        return f"No errors matching '{error_keyword}' found in the last {minutes} minutes."
+
+    # Deduplicate by message (keep first occurrence of each unique message prefix)
+    seen: set[str] = set()
+    unique_errors: list[LogEntry] = []
+    for e in errors:
+        key = e.message[:120]
+        if key not in seen:
+            seen.add(key)
+            unique_errors.append(e)
+        if len(unique_errors) >= max_errors:
+            break
+
+    sections: list[str] = []
+    sections.append(f"Found {len(errors)} error(s), {len(unique_errors)} unique pattern(s) in the last {minutes} min.\n")
+
+    for i, err in enumerate(unique_errors, 1):
+        # Fetch context window around this error
+        ctx_start = err.timestamp - timedelta(seconds=context_window_seconds)
+        ctx_end = err.timestamp + timedelta(seconds=context_window_seconds)
+        context_logs = _get_source().query(ctx_start, ctx_end, max_results=50)
+
+        sections.append(f"--- Error #{i} ---")
+        sections.append(f"Timestamp: {err.timestamp.isoformat()}")
+        sections.append(f"Level: {err.level}")
+        sections.append(f"Source: {err.source}")
+        sections.append(f"Message: {err.message[:500]}")
+
+        if context_logs:
+            sections.append(f"\nContext ({len(context_logs)} log entries around this error):")
+            for ctx in context_logs:
+                marker = ">>>" if ctx.timestamp == err.timestamp and ctx.message[:80] == err.message[:80] else "   "
+                sections.append(
+                    f"  {marker} [{ctx.timestamp.isoformat()}] [{ctx.level}] ({ctx.source}) {ctx.message[:200]}"
+                )
+        sections.append("")
+
+    return "\n".join(sections)
+
+
+@tool
+def query_error_clusters(minutes: int = 60) -> str:
+    """Group and count errors from the recent time window to identify patterns.
+
+    Returns clusters of similar errors sorted by frequency, helping identify
+    the most impactful issues vs one-off noise. Also shows the time span of
+    each cluster to detect whether errors are bursty or sustained.
+
+    Args:
+        minutes: Look-back window in minutes (default 60).
+    """
+    end = datetime.now()
+    start = end - timedelta(minutes=minutes)
+
+    entries = _get_source().query(start, end, search_query="error", max_results=1000)
+    errors = [e for e in entries if e.level in ("ERROR", "FATAL", "WARN")]
+
+    if not errors:
+        return f"No errors found in the last {minutes} minutes."
+
+    # Cluster by normalised message prefix (first 120 chars)
+    clusters: dict[str, list[LogEntry]] = {}
+    for e in errors:
+        key = e.message[:120].strip()
+        clusters.setdefault(key, []).append(e)
+
+    # Sort by frequency descending
+    sorted_clusters = sorted(clusters.items(), key=lambda x: len(x[1]), reverse=True)
+
+    lines: list[str] = []
+    lines.append(f"Error clusters in the last {minutes} min: {len(errors)} total errors, {len(sorted_clusters)} distinct patterns.\n")
+
+    for rank, (pattern, group) in enumerate(sorted_clusters[:15], 1):
+        first = min(e.timestamp for e in group)
+        last = max(e.timestamp for e in group)
+        sources = list({e.source for e in group})
+        lines.append(f"#{rank} — Count: {len(group)} | First: {first.isoformat()} | Last: {last.isoformat()}")
+        lines.append(f"  Sources: {', '.join(sources[:5])}")
+        lines.append(f"  Pattern: {pattern}")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+# ── Application-aware tools ───────────────────────────────────────
+
+
+@tool
+def lookup_application(app_name: str) -> str:
+    """Look up a registered application by name to get its Splunk index and sourcetype.
+
+    ALWAYS call this first when a user mentions an application name (e.g. "myaccount",
+    "order manager") to resolve the correct Splunk index/sourcetype before querying logs.
+
+    Args:
+        app_name: The application name or alias (e.g. "myaccount", "mya").
+    """
+    from logwizard.config import resolve_app, APP_REGISTRY
+
+    entry = resolve_app(app_name)
+    if entry:
+        return json.dumps({
+            "found": True,
+            "app_name": app_name,
+            "index": entry["index"],
+            "sourcetype": entry["sourcetype"],
+            "description": entry.get("description", ""),
+        }, indent=2)
+
+    # Not found — list available apps
+    available = [
+        f"  - {name}: {info['description']}" for name, info in APP_REGISTRY.items()
+    ]
+    return (
+        f"Application '{app_name}' not found in the registry.\n"
+        f"Available applications:\n" + "\n".join(available)
+    )
+
+
+@tool
+def query_app_errors(
+    app_name: str,
+    minutes: int = 60,
+    search_keywords: str = "",
+    max_results: int = 200,
+) -> str:
+    """Query recent errors for a specific application by name.
+
+    This combines application lookup + Splunk query in one step.
+    Use this when the user asks about errors in a specific application.
+    ALWAYS set the `minutes` parameter to match what the user asks for
+    (e.g. "last 10 minutes" → minutes=10, "last hour" → minutes=60).
+
+    Args:
+        app_name: The application name (e.g. "myaccount").
+        minutes: Look-back window in minutes (default 60). Set this based on what the user asks.
+        search_keywords: Additional keywords to filter (e.g. "timeout", "500", "NullPointer").
+        max_results: Maximum entries to return.
+    """
+    from logwizard.config import resolve_app
+    from logwizard.sources.splunk_source import SplunkSource
+
+    entry = resolve_app(app_name)
+    if not entry:
+        return f"Application '{app_name}' not found. Use lookup_application to see available apps."
+
+    app_source = SplunkSource(index=entry["index"], sourcetype=entry["sourcetype"])
+
+    end = datetime.now()
+    start = end - timedelta(minutes=minutes)
+
+    # Build focused error search — prioritise ERROR/FATAL, include exception stack traces
+    search = "(ERROR OR FATAL OR exception OR fail OR timeout)"
+    if search_keywords:
+        search = f"({search_keywords}) AND ({search})"
+
+    entries = app_source.query(start, end, search_query=search, max_results=max_results)
+    errors = [e for e in entries if e.level in ("ERROR", "FATAL", "WARN")]
+    if not errors:
+        errors = entries
+
+    if not errors:
+        return f"No errors found for '{app_name}' ({entry['description']}) in the last {minutes} minutes. The application looks healthy in this window."
+
+    header = (
+        f"Errors for **{app_name}** ({entry['description']})\n"
+        f"Index: {entry['index']} | Sourcetype: {entry['sourcetype']}\n"
+        f"Time range: last {minutes} min | Found: {len(errors)} error(s)\n\n"
+    )
+    return header + _entries_to_text(errors)
+
+
+@tool
+def query_app_logs(
+    app_name: str,
+    start_time: str,
+    end_time: str,
+    search_query: str = "",
+    max_results: int = 200,
+) -> str:
+    """Query logs for a specific application by name within a time range.
+
+    Args:
+        app_name: The application name (e.g. "myaccount").
+        start_time: ISO-8601 datetime string for the start.
+        end_time: ISO-8601 datetime string for the end.
+        search_query: Optional SPL filter / keywords.
+        max_results: Maximum entries to return.
+    """
+    from logwizard.config import resolve_app
+    from logwizard.sources.splunk_source import SplunkSource
+
+    entry = resolve_app(app_name)
+    if not entry:
+        return f"Application '{app_name}' not found. Use lookup_application to see available apps."
+
+    try:
+        st = datetime.fromisoformat(start_time)
+        et = datetime.fromisoformat(end_time)
+    except ValueError:
+        return "Error: start_time and end_time must be valid ISO-8601 datetime strings."
+
+    app_source = SplunkSource(index=entry["index"], sourcetype=entry["sourcetype"])
+    entries = app_source.query(st, et, search_query or None, max_results)
+
+    header = (
+        f"Logs for **{app_name}** ({entry['description']})\n"
+        f"Index: {entry['index']} | Sourcetype: {entry['sourcetype']}\n\n"
+    )
+    return header + _entries_to_text(entries)
+
+
 # ── All tools list ────────────────────────────────────────────────
 
 ALL_TOOLS = [
+    lookup_application,
+    query_app_errors,
+    query_app_logs,
     query_logs,
     query_recent_errors,
     get_log_statistics,
+    analyze_error_context,
+    query_error_clusters,
     search_known_errors,
     search_past_incidents,
     store_learned_pattern,

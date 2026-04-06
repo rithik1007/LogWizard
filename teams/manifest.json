@@ -10,12 +10,12 @@
     "termsOfUseUrl": "https://{{YOUR_DOMAIN}}/terms"
   },
   "name": {
-    "short": "LogWizard",
-    "full": "LogWizard — AI Log Analyst"
+    "short": "Echelon AI",
+    "full": "Echelon AI — AI Log Analyst"
   },
   "description": {
     "short": "AI-powered log analysis agent that monitors, analyses, and resolves production errors.",
-    "full": "LogWizard connects to Splunk, reads application logs, identifies error patterns, performs root cause analysis, and proposes solutions. Ask about any registered application (MyAccount, SDP/EDP) and get instant incident analysis."
+    "full": "Echelon AI connects to Splunk, reads application logs, identifies error patterns, performs root cause analysis, and proposes solutions. Ask about any registered application (MyAccount, SDP/EDP) and get instant incident analysis."
   },
   "icons": {
     "color": "color.png",
@@ -24,8 +24,8 @@
   "accentColor": "#6c63ff",
   "staticTabs": [
     {
-      "entityId": "logwizard-home",
-      "name": "LogWizard",
+      "entityId": "echelon-home",
+      "name": "Echelon AI",
       "contentUrl": "https://{{YOUR_DOMAIN}}/",
       "scopes": ["personal"]
     }

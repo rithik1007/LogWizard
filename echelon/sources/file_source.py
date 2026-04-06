@@ -8,8 +8,8 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-from logwizard.config import settings
-from logwizard.sources.base import LogEntry, LogSource
+from echelon.config import settings
+from echelon.sources.base import LogEntry, LogSource
 
 # Common syslog / application log pattern:
 #   2024-06-01 14:32:11,123 ERROR [module] Some message

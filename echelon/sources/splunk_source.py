@@ -7,8 +7,8 @@ from datetime import datetime
 
 import httpx
 
-from logwizard.config import settings
-from logwizard.sources.base import LogEntry, LogSource
+from echelon.config import settings
+from echelon.sources.base import LogEntry, LogSource
 
 
 class SplunkSource(LogSource):

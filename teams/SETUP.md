@@ -5,7 +5,7 @@
 ### 1. Replace placeholders in `manifest.json`
 - `{{APP_ID}}` — Generate a GUID at https://www.guidgenerator.com/
 - `{{BOT_ID}}` — From Azure Bot registration (step 3)
-- `{{YOUR_DOMAIN}}` — Your hosted LogWizard URL (e.g. `logwizard.wkrainier.com`)
+- `{{YOUR_DOMAIN}}` — Your hosted Echelon AI URL (e.g. `echelon.wkrainier.com`)
 
 ### 2. Add app icons
 - `color.png` — 192x192 full-color icon
@@ -18,21 +18,21 @@
 4. Set the messaging endpoint to: `https://{{YOUR_DOMAIN}}/api/teams/messages`
 5. Add the Bot ID to your `.env` as `TEAMS_BOT_ID` and password as `TEAMS_BOT_PASSWORD`
 
-### 4. Deploy LogWizard
+### 4. Deploy Echelon AI
 The server must be accessible over HTTPS on a public/internal URL.
 Options:
-- **Azure App Service** — `az webapp up --name logwizard --runtime PYTHON:3.9`
+- **Azure App Service** — `az webapp up --name echelon-ai --runtime PYTHON:3.9`
 - **Azure Container Instance** — Build Docker image, deploy to ACI
 - **Internal server** — Any server reachable from Teams with valid TLS
 
 ### 5. Package and sideload
 ```bash
 cd teams/
-zip -r logwizard-teams.zip manifest.json color.png outline.png
+zip -r echelon-teams.zip manifest.json color.png outline.png
 ```
 Then in Teams: Apps → Manage your apps → Upload a custom app → Select the zip.
 
 ### How it works
-- **Tab (sidebar)**: Loads the LogWizard web UI inside Teams via iframe
-- **Bot**: Users can chat with LogWizard directly in Teams — messages go to
+- **Tab (sidebar)**: Loads the Echelon AI web UI inside Teams via iframe
+- **Bot**: Users can chat with Echelon AI directly in Teams — messages go to
   `/api/teams/messages` which routes to the same agent

@@ -1,5 +1,5 @@
 """
-FastAPI server — REST + streaming endpoint for LogWizard.
+FastAPI server — REST + streaming endpoint for Echelon AI.
 """
 
 from __future__ import annotations
@@ -13,11 +13,11 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from logwizard.agent import LogWizardAgent
+from echelon.agent import EchelonAgent
 
 _STATIC_DIR = Path(__file__).parent / "static"
 
-app = FastAPI(title="LogWizard API", version="0.1.0")
+app = FastAPI(title="Echelon AI API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -36,19 +36,20 @@ class TeamsHeadersMiddleware(BaseHTTPMiddleware):
             "frame-ancestors teams.microsoft.com *.teams.microsoft.com "
             "*.skype.com *.microsoft.com https://localhost:* http://localhost:*"
         )
-        response.headers.pop("X-Frame-Options", None)
+        if "X-Frame-Options" in response.headers:
+            del response.headers["X-Frame-Options"]
         return response
 
 
 app.add_middleware(TeamsHeadersMiddleware)
 
-_agent: LogWizardAgent | None = None
+_agent: EchelonAgent | None = None
 
 
-def _get_agent() -> LogWizardAgent:
+def _get_agent() -> EchelonAgent:
     global _agent
     if _agent is None:
-        _agent = LogWizardAgent()
+        _agent = EchelonAgent()
     return _agent
 
 
@@ -117,7 +118,7 @@ async def teams_messages(request: Request):
     except ImportError:
         return {"error": "botbuilder-core not installed. Run: pip install botbuilder-core"}
 
-    from logwizard.config import settings
+    from echelon.config import settings
 
     bot_settings = BotFrameworkAdapterSettings(
         app_id=getattr(settings, "teams_bot_id", ""),
@@ -153,10 +154,10 @@ app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 def run_server():
     """Entry point used by the CLI."""
     import uvicorn
-    from logwizard.config import settings
+    from echelon.config import settings
 
     uvicorn.run(
-        "logwizard.api:app",
+        "echelon.api:app",
         host=settings.api_host,
         port=settings.api_port,
         reload=False,

@@ -10,9 +10,9 @@ from datetime import datetime, timedelta
 
 from langchain_core.tools import tool
 
-from logwizard.knowledge import KnowledgeBase
-from logwizard.sources.base import LogEntry, LogSource
-from logwizard.sources.file_source import FileSource
+from echelon.knowledge import KnowledgeBase
+from echelon.sources.base import LogEntry, LogSource
+from echelon.sources.file_source import FileSource
 
 # Module-level singletons — initialised by `init_tools()`
 _log_source: LogSource | None = None
@@ -238,6 +238,173 @@ def knowledge_base_stats() -> str:
     return json.dumps(stats, indent=2)
 
 
+# ── User feedback / known issues tools ────────────────────────────
+
+
+@tool
+def mark_known_issue(
+    error_pattern: str,
+    feedback_type: str = "known_issue",
+    application: str = "",
+    user_note: str = "",
+    resolution: str = "",
+) -> str:
+    """Store user feedback that an error is a known issue, expected, noise, or resolved.
+
+    Call this when the user tells you something like:
+    - "that's a known issue" → feedback_type='known_issue'
+    - "that error is expected / normal" → feedback_type='expected'
+    - "ignore that, it's noise" → feedback_type='noise'
+    - "that's been resolved / fixed" → feedback_type='resolved'
+    - "that's critical, flag it" → feedback_type='critical'
+
+    This memory persists across conversations so the agent can recognise
+    the same error next time and provide context immediately.
+
+    Args:
+        error_pattern: The error message or pattern to remember (be specific).
+        feedback_type: One of 'known_issue', 'expected', 'noise', 'resolved', 'critical'.
+        application: Which application this relates to (e.g. "myaccount").
+        user_note: The user's explanation of why this is known/expected/etc.
+        resolution: How it was resolved (if feedback_type='resolved').
+    """
+    valid_types = {"known_issue", "expected", "noise", "resolved", "critical"}
+    if feedback_type not in valid_types:
+        feedback_type = "known_issue"
+
+    doc_id = _get_kb().store_feedback(
+        error_pattern=error_pattern,
+        feedback_type=feedback_type,
+        application=application,
+        user_note=user_note,
+        resolution=resolution,
+    )
+
+    labels = {
+        "known_issue": "known issue",
+        "expected": "expected behavior",
+        "noise": "noise (will be deprioritized)",
+        "resolved": "resolved",
+        "critical": "critical (will be flagged)",
+    }
+    return (
+        f"Got it! Stored as **{labels[feedback_type]}** (id={doc_id}).\n"
+        f"Pattern: {error_pattern[:150]}\n"
+        f"Next time I see this error, I'll remember this context."
+    )
+
+
+@tool
+def check_known_issues(error_text: str) -> str:
+    """Check if an error matches any user-reported known issues or feedback.
+
+    Call this BEFORE presenting error analysis to the user — if the error
+    matches a known issue, include that context in your analysis.
+
+    Args:
+        error_text: The error message or pattern to check against known feedback.
+    """
+    results = _get_kb().search_feedback(error_text, top_k=5)
+    if not results:
+        return "No matching known issues or user feedback found for this error."
+
+    # Filter to only reasonably close matches (distance < 1.5)
+    close = [r for r in results if r.get("distance", 99) < 1.5]
+    if not close:
+        return "No closely matching known issues found."
+
+    lines = ["**Known issues matching this error:**\n"]
+    for r in close:
+        meta = r["metadata"]
+        fb_type = meta.get("feedback_type", "unknown")
+        app = meta.get("application", "")
+        note = meta.get("user_note", "")
+        resolution = meta.get("resolution", "")
+        created = meta.get("created_at", "")
+
+        emoji = {
+            "known_issue": "🔵",
+            "expected": "✅",
+            "noise": "⚪",
+            "resolved": "🟢",
+            "critical": "🔴",
+        }.get(fb_type, "❓")
+
+        line = f"{emoji} **{fb_type.replace('_', ' ').title()}**"
+        if app:
+            line += f" ({app})"
+        line += f"\n  Pattern: {meta.get('error_pattern', r['document'][:150])}"
+        if note:
+            line += f"\n  Note: {note}"
+        if resolution:
+            line += f"\n  Resolution: {resolution}"
+        if created:
+            line += f"\n  Recorded: {created[:19]}"
+        lines.append(line)
+
+    return "\n".join(lines)
+
+
+@tool
+def list_known_issues(application: str = "") -> str:
+    """List all user-reported known issues, expected errors, and feedback.
+
+    Args:
+        application: Optional — filter by application name. Leave empty for all.
+    """
+    items = _get_kb().list_all_feedback()
+    if not items:
+        return "No known issues or user feedback stored yet. The knowledge base is empty."
+
+    if application:
+        items = [
+            it for it in items
+            if it["metadata"].get("application", "").lower() == application.lower()
+        ]
+        if not items:
+            return f"No known issues stored for application '{application}'."
+
+    lines = [f"**Known Issues & Feedback** ({len(items)} entries):\n"]
+    for it in items:
+        meta = it["metadata"]
+        fb_type = meta.get("feedback_type", "unknown")
+        app = meta.get("application", "N/A")
+        note = meta.get("user_note", "")
+        pattern = meta.get("error_pattern", it["document"][:150])
+
+        emoji = {
+            "known_issue": "🔵",
+            "expected": "✅",
+            "noise": "⚪",
+            "resolved": "🟢",
+            "critical": "🔴",
+        }.get(fb_type, "❓")
+
+        line = f"{emoji} [{it['id']}] **{fb_type.replace('_', ' ').title()}** | App: {app}"
+        line += f"\n  Pattern: {pattern[:120]}"
+        if note:
+            line += f"\n  Note: {note}"
+        lines.append(line)
+
+    return "\n".join(lines)
+
+
+@tool
+def remove_known_issue(issue_id: str) -> str:
+    """Remove a known issue / feedback entry by its ID.
+
+    Use this when the user says a previously-known issue is no longer relevant,
+    or wants to undo a feedback entry.
+
+    Args:
+        issue_id: The ID of the feedback entry to remove (shown in list_known_issues).
+    """
+    success = _get_kb().delete_feedback(issue_id)
+    if success:
+        return f"Removed feedback entry {issue_id}."
+    return f"Could not find or remove entry with id={issue_id}."
+
+
 # ── Deep analysis tools ───────────────────────────────────────────
 
 
@@ -370,7 +537,7 @@ def lookup_application(app_name: str) -> str:
     Args:
         app_name: The application name or alias (e.g. "myaccount", "mya").
     """
-    from logwizard.config import resolve_app, APP_REGISTRY
+    from echelon.config import resolve_app, APP_REGISTRY
 
     entry = resolve_app(app_name)
     if entry:
@@ -412,8 +579,8 @@ def query_app_errors(
         search_keywords: Additional keywords to filter (e.g. "timeout", "500", "NullPointer").
         max_results: Maximum entries to return.
     """
-    from logwizard.config import resolve_app
-    from logwizard.sources.splunk_source import SplunkSource
+    from echelon.config import resolve_app
+    from echelon.sources.splunk_source import SplunkSource
 
     entry = resolve_app(app_name)
     if not entry:
@@ -483,8 +650,8 @@ def query_app_logs(
         search_query: Optional SPL filter / keywords.
         max_results: Maximum entries to return.
     """
-    from logwizard.config import resolve_app
-    from logwizard.sources.splunk_source import SplunkSource
+    from echelon.config import resolve_app
+    from echelon.sources.splunk_source import SplunkSource
 
     entry = resolve_app(app_name)
     if not entry:
@@ -522,4 +689,8 @@ ALL_TOOLS = [
     store_learned_pattern,
     store_incident_analysis,
     knowledge_base_stats,
+    mark_known_issue,
+    check_known_issues,
+    list_known_issues,
+    remove_known_issue,
 ]

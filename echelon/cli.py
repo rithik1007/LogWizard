@@ -1,5 +1,5 @@
 """
-Rich CLI — interactive terminal interface for LogWizard.
+Rich CLI — interactive terminal interface for Echelon AI.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ console = Console()
 def main():
     console.print(
         Panel.fit(
-            "[bold cyan]LogWizard[/bold cyan] — AI-Powered Log Analysis Agent\n"
+            "[bold cyan]Echelon AI[/bold cyan] — AI-Powered Log Analysis Agent\n"
             "Type your question and press Enter. Type [bold]quit[/bold] to exit.",
             border_style="cyan",
         )
@@ -24,12 +24,12 @@ def main():
 
     # Lazy import so startup errors are surfaced cleanly
     try:
-        from logwizard.agent import LogWizardAgent
+        from echelon.agent import EchelonAgent
     except Exception as exc:
         console.print(f"[red]Failed to initialise agent:[/red] {exc}")
         sys.exit(1)
 
-    agent = LogWizardAgent()
+    agent = EchelonAgent()
 
     # Print KB stats
     stats = agent.knowledge_base.get_stats()

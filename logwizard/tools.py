@@ -424,15 +424,36 @@ def query_app_errors(
     end = datetime.now()
     start = end - timedelta(minutes=minutes)
 
-    # Build focused error search — prioritise ERROR/FATAL, include exception stack traces
-    search = "(ERROR OR FATAL OR exception OR fail OR timeout)"
+    # Run TWO queries and merge results:
+    # 1. Broad query — the original Splunk search (just "error") to catch everything
+    # 2. Focused query — targets specific severity patterns for deeper analysis
+    broad_search = "error"
+    focused_search = "(ERROR OR FATAL OR exception OR fail OR timeout)"
     if search_keywords:
-        search = f"({search_keywords}) AND ({search})"
+        broad_search = f"({search_keywords}) {broad_search}"
+        focused_search = f"({search_keywords}) AND ({focused_search})"
 
-    entries = app_source.query(start, end, search_query=search, max_results=max_results)
-    errors = [e for e in entries if e.level in ("ERROR", "FATAL", "WARN")]
+    # Query 1: Broad (original style)
+    broad_entries = app_source.query(start, end, search_query=broad_search, max_results=max_results)
+
+    # Query 2: Focused (catches exceptions/failures that might not contain "error")
+    focused_entries = app_source.query(start, end, search_query=focused_search, max_results=max_results)
+
+    # Merge & deduplicate by (timestamp, message prefix)
+    seen: set[str] = set()
+    all_entries: list[LogEntry] = []
+    for e in broad_entries + focused_entries:
+        key = f"{e.timestamp.isoformat()}|{e.message[:100]}"
+        if key not in seen:
+            seen.add(key)
+            all_entries.append(e)
+
+    # Sort newest first
+    all_entries.sort(key=lambda e: e.timestamp, reverse=True)
+
+    errors = [e for e in all_entries if e.level in ("ERROR", "FATAL", "WARN")]
     if not errors:
-        errors = entries
+        errors = all_entries
 
     if not errors:
         return f"No errors found for '{app_name}' ({entry['description']}) in the last {minutes} minutes. The application looks healthy in this window."

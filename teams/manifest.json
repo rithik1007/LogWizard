@@ -1,0 +1,62 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.0.0",
+  "id": "{{APP_ID}}",
+  "developer": {
+    "name": "Wolters Kluwer — Code Games",
+    "websiteUrl": "https://{{YOUR_DOMAIN}}",
+    "privacyUrl": "https://{{YOUR_DOMAIN}}/privacy",
+    "termsOfUseUrl": "https://{{YOUR_DOMAIN}}/terms"
+  },
+  "name": {
+    "short": "LogWizard",
+    "full": "LogWizard — AI Log Analyst"
+  },
+  "description": {
+    "short": "AI-powered log analysis agent that monitors, analyses, and resolves production errors.",
+    "full": "LogWizard connects to Splunk, reads application logs, identifies error patterns, performs root cause analysis, and proposes solutions. Ask about any registered application (MyAccount, SDP/EDP) and get instant incident analysis."
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "accentColor": "#6c63ff",
+  "staticTabs": [
+    {
+      "entityId": "logwizard-home",
+      "name": "LogWizard",
+      "contentUrl": "https://{{YOUR_DOMAIN}}/",
+      "scopes": ["personal"]
+    }
+  ],
+  "bots": [
+    {
+      "botId": "{{BOT_ID}}",
+      "scopes": ["personal", "team", "groupChat"],
+      "supportsFiles": false,
+      "isNotificationOnly": false,
+      "commandLists": [
+        {
+          "scopes": ["personal"],
+          "commands": [
+            {
+              "title": "errors",
+              "description": "Check recent errors for an application (e.g. 'errors myaccount')"
+            },
+            {
+              "title": "analyse",
+              "description": "Run full incident analysis (e.g. 'analyse myaccount last 10 minutes')"
+            },
+            {
+              "title": "apps",
+              "description": "List all registered applications"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": ["{{YOUR_DOMAIN}}"]
+}

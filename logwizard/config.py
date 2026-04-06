@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
 
+    # Teams Bot (optional — only needed for Teams bot integration)
+    teams_bot_id: str = ""
+    teams_bot_password: str = ""
+
     model_config = {"env_file": str(_ENV_FILE), "env_file_encoding": "utf-8"}
 
 

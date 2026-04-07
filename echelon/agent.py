@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import AzureChatOpenAI
 from langgraph.prebuilt import create_react_agent
 
@@ -212,26 +212,52 @@ class EchelonAgent:
             prompt=SYSTEM_PROMPT,
         )
 
+        # Conversation history for multi-turn context
+        self._history: list = []
+        self._max_history: int = 20  # keep last N exchanges to avoid token overflow
+
+    def _trim_history(self) -> None:
+        """Keep only the most recent exchanges to stay within token limits."""
+        if len(self._history) > self._max_history * 2:
+            self._history = self._history[-(self._max_history * 2):]
+
+    def clear_history(self) -> None:
+        """Reset conversation history."""
+        self._history.clear()
+
     def chat(self, user_message: str) -> str:
-        """Send a message and get the agent's full response."""
+        """Send a message and get the agent's full response (with conversation memory)."""
+        self._history.append(HumanMessage(content=user_message))
+        self._trim_history()
+
         result = self._agent.invoke(
-            {"messages": [HumanMessage(content=user_message)]}
+            {"messages": list(self._history)}
         )
         # The last AI message is the final response
         ai_messages = [
             m for m in result["messages"] if hasattr(m, "content") and m.content
         ]
-        return ai_messages[-1].content if ai_messages else "No response generated."
+        response = ai_messages[-1].content if ai_messages else "No response generated."
+
+        self._history.append(AIMessage(content=response))
+        return response
 
     def stream_chat(self, user_message: str):
-        """Yield streamed token chunks for real-time output."""
+        """Yield streamed token chunks for real-time output (with conversation memory)."""
+        self._history.append(HumanMessage(content=user_message))
+        self._trim_history()
+
+        full_response = ""
         for chunk in self._agent.stream(
-            {"messages": [HumanMessage(content=user_message)]},
+            {"messages": list(self._history)},
             stream_mode="messages",
         ):
             msg, metadata = chunk
             if msg.content and metadata.get("langgraph_node") == "agent":
+                full_response += msg.content
                 yield msg.content
+
+        self._history.append(AIMessage(content=full_response))
 
     @property
     def knowledge_base(self) -> KnowledgeBase:

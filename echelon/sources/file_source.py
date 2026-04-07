@@ -19,6 +19,10 @@ _TS_PATTERN = re.compile(
 _LEVEL_PATTERN = re.compile(
     r"\b(FATAL|ERROR|WARN(?:ING)?|INFO|DEBUG|TRACE)\b", re.IGNORECASE
 )
+# Extract component name from log lines like: ... ERROR [inventory-service] ...
+_SOURCE_PATTERN = re.compile(
+    r"\b(?:FATAL|ERROR|WARN(?:ING)?|INFO|DEBUG|TRACE)\b\s+\[([^\]]+)\]", re.IGNORECASE
+)
 
 
 class FileSource(LogSource):
@@ -128,10 +132,14 @@ class FileSource(LogSource):
         level_match = _LEVEL_PATTERN.search(line)
         level = level_match.group(1).upper().replace("WARNING", "WARN") if level_match else "INFO"
 
+        # Try to extract component name from brackets after log level
+        source_match = _SOURCE_PATTERN.search(line)
+        source = source_match.group(1).strip() if source_match else source_name
+
         return LogEntry(
             timestamp=ts,
             level=level,
-            source=source_name,
+            source=source,
             message=line[:2000],
             raw=line,
         )

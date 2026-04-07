@@ -673,6 +673,54 @@ def query_app_logs(
     return header + _entries_to_text(entries)
 
 
+# ── Digest subscription tools ────────────────────────────────────
+
+
+@tool
+def subscribe_to_digest(email: str) -> str:
+    """Subscribe an email address to the daily log digest.
+
+    Call this when a user says they want to receive daily email summaries
+    of the logs. The digest is sent once a day and highlights any errors
+    found in the previous day's logs.
+
+    Args:
+        email: The email address to subscribe.
+    """
+    from echelon.digest import subscribe
+    added = subscribe(email)
+    if added:
+        return f"Subscribed **{email}** to the daily digest. They'll receive a summary each morning with any errors highlighted."
+    return f"**{email}** is already subscribed to the daily digest."
+
+
+@tool
+def unsubscribe_from_digest(email: str) -> str:
+    """Unsubscribe an email address from the daily log digest.
+
+    Args:
+        email: The email address to unsubscribe.
+    """
+    from echelon.digest import unsubscribe
+    removed = unsubscribe(email)
+    if removed:
+        return f"Unsubscribed **{email}** from the daily digest."
+    return f"**{email}** was not found in the subscriber list."
+
+
+@tool
+def show_digest_subscribers() -> str:
+    """List all email addresses subscribed to the daily log digest."""
+    from echelon.digest import list_subscribers
+    subs = list_subscribers()
+    if not subs:
+        return "No one is subscribed to the daily digest yet."
+    lines = [f"**Daily Digest Subscribers** ({len(subs)}):\n"]
+    for s in subs:
+        lines.append(f"- {s}")
+    return "\n".join(lines)
+
+
 # ── All tools list ────────────────────────────────────────────────
 
 ALL_TOOLS = [
@@ -693,4 +741,7 @@ ALL_TOOLS = [
     check_known_issues,
     list_known_issues,
     remove_known_issue,
+    subscribe_to_digest,
+    unsubscribe_from_digest,
+    show_digest_subscribers,
 ]

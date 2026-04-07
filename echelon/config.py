@@ -38,6 +38,17 @@ class Settings(BaseSettings):
     teams_bot_id: str = ""
     teams_bot_password: str = ""
 
+    # Daily Digest Email
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_use_tls: bool = True
+    digest_from_email: str = "echelon-ai@noreply.local"
+    digest_send_hour: int = 12  # Hour of day (0-23) to send the daily digest
+    digest_send_minute: int = 0
+    digest_subscribers_file: str = "./data/digest_subscribers.json"
+
     model_config = {"env_file": str(_ENV_FILE), "env_file_encoding": "utf-8"}
 
 
@@ -45,18 +56,21 @@ settings = Settings()
 
 # ── Application Registry ──────────────────────────────────────────
 # Maps friendly application names (and aliases) to their Splunk index + sourcetype.
+# `sources` lists component/source names from local logs that belong to this app.
 # Add new apps here as needed.
 
-APP_REGISTRY: dict[str, dict[str, str]] = {
+APP_REGISTRY: dict[str, dict] = {
     "myaccount": {
         "index": "mya-caas-prod",
         "sourcetype": "kube:container:mya-prod",
         "description": "MyAccount — customer account management portal",
+        "sources": ["db-pool", "auth-service", "session-manager", "user-profile", "scheduler", "api-gateway"],
     },
     "sdp": {
         "index": "sdp-caas-nonprod",
         "sourcetype": "kube:container:sdp-dev",
         "description": "SDP — service delivery platform (dev/nonprod)",
+        "sources": ["order-service", "payment-gw", "catalog-service", "notification-svc", "inventory-service"],
     },
     # Add more apps below — just copy the block above and change the values.
 }

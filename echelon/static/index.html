@@ -80,6 +80,119 @@
 
         .kb-stats { opacity: 0.7; }
 
+        /* ── Digest Subscribe ─────────────────────── */
+        .digest-btn {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 6px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .digest-btn:hover {
+            background: var(--accent-glow);
+            border-color: var(--accent);
+            color: var(--text-primary);
+        }
+        .digest-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .digest-modal-overlay.active { display: flex; }
+        .digest-modal {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 28px 32px;
+            width: 420px;
+            max-width: 90vw;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+        }
+        .digest-modal h2 {
+            font-size: 18px;
+            margin: 0 0 6px;
+            color: var(--text-primary);
+        }
+        .digest-modal p {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin: 0 0 18px;
+            line-height: 1.5;
+        }
+        .digest-modal .form-row {
+            display: flex;
+            gap: 8px;
+        }
+        .digest-modal input[type="email"] {
+            flex: 1;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: var(--text-primary);
+            font-size: 13px;
+            outline: none;
+        }
+        .digest-modal input[type="email"]:focus { border-color: var(--accent); }
+        .digest-modal .btn-subscribe {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 18px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .digest-modal .btn-subscribe:hover { background: var(--accent-hover); }
+        .digest-modal .btn-unsubscribe {
+            background: transparent;
+            color: var(--error);
+            border: 1px solid var(--error);
+            border-radius: 8px;
+            padding: 10px 18px;
+            font-size: 13px;
+            cursor: pointer;
+            white-space: nowrap;
+            margin-top: 8px;
+        }
+        .digest-modal .btn-unsubscribe:hover { background: rgba(255,107,107,0.1); }
+        .digest-modal .btn-close {
+            background: transparent;
+            color: var(--text-secondary);
+            border: none;
+            font-size: 13px;
+            cursor: pointer;
+            margin-top: 12px;
+        }
+        .digest-modal .btn-close:hover { color: var(--text-primary); }
+        .digest-msg {
+            margin-top: 10px;
+            font-size: 13px;
+            min-height: 20px;
+        }
+        .digest-msg.success { color: var(--success); }
+        .digest-msg.error { color: var(--error); }
+        .digest-preview-link {
+            display: inline-block;
+            margin-top: 12px;
+            font-size: 12px;
+            color: var(--accent);
+            text-decoration: none;
+        }
+        .digest-preview-link:hover { text-decoration: underline; }
+
         /* ── Chat Area ────────────────────────────── */
         #chat-area {
             flex: 1;
@@ -325,6 +438,19 @@
             <h1>Echelon AI</h1>
         </div>
         <div class="status-bar">
+            <a href="/dashboard" class="digest-btn" title="View Dashboard" style="text-decoration:none;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+                    <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+                </svg>
+                Dashboard
+            </a>
+            <button class="digest-btn" onclick="openDigestModal()" title="Daily Log Digest">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                </svg>
+                Daily Digest
+            </button>
             <span id="connection-status"><span class="status-dot" id="status-dot"></span> <span id="status-text">Connecting…</span></span>
             <span class="kb-stats" id="kb-stats"></span>
         </div>
@@ -360,6 +486,23 @@
             </button>
         </div>
         <div class="input-hint">Press Enter to send · Shift+Enter for new line</div>
+    </div>
+
+    <!-- Digest subscribe modal -->
+    <div class="digest-modal-overlay" id="digest-overlay" onclick="if(event.target===this)closeDigestModal()">
+        <div class="digest-modal">
+            <h2>📬 Daily Log Digest</h2>
+            <p>Get a daily email summary of yesterday's logs every morning. Errors are <strong style="color:var(--error);">highlighted in red</strong> so you know what needs attention.</p>
+            <div class="form-row">
+                <input type="email" id="digest-email" placeholder="your@email.com" />
+                <button class="btn-subscribe" onclick="digestSubscribe()">Subscribe</button>
+            </div>
+            <button class="btn-unsubscribe" onclick="digestUnsubscribe()" style="width:100%;">Unsubscribe</button>
+            <div class="digest-msg" id="digest-msg"></div>
+            <a class="digest-preview-link" href="/digest/preview" target="_blank">Preview today's digest →</a>
+            <br>
+            <button class="btn-close" onclick="closeDigestModal()">Close</button>
+        </div>
     </div>
 
     <script>
@@ -562,6 +705,68 @@
 
             return `<p>${html}</p>`.replace(/<p><\/p>/g, '');
         }
+
+        // ── Digest modal ─────────────────────────
+        function openDigestModal() {
+            document.getElementById('digest-overlay').classList.add('active');
+            document.getElementById('digest-email').focus();
+        }
+        function closeDigestModal() {
+            document.getElementById('digest-overlay').classList.remove('active');
+            document.getElementById('digest-msg').textContent = '';
+        }
+        async function digestSubscribe() {
+            const email = document.getElementById('digest-email').value.trim();
+            const msgEl = document.getElementById('digest-msg');
+            if (!email) { msgEl.className = 'digest-msg error'; msgEl.textContent = 'Enter an email address.'; return; }
+            try {
+                const res = await fetch(`${API_BASE}/digest/subscribe`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email }),
+                });
+                const data = await res.json();
+                if (data.status === 'subscribed') {
+                    msgEl.className = 'digest-msg success';
+                    msgEl.textContent = `Subscribed! You'll receive daily log summaries at ${email}.`;
+                } else if (data.status === 'already_subscribed') {
+                    msgEl.className = 'digest-msg success';
+                    msgEl.textContent = `${email} is already subscribed.`;
+                } else {
+                    msgEl.className = 'digest-msg error';
+                    msgEl.textContent = data.detail || 'Something went wrong.';
+                }
+            } catch (err) {
+                msgEl.className = 'digest-msg error';
+                msgEl.textContent = 'Failed to subscribe: ' + err.message;
+            }
+        }
+        async function digestUnsubscribe() {
+            const email = document.getElementById('digest-email').value.trim();
+            const msgEl = document.getElementById('digest-msg');
+            if (!email) { msgEl.className = 'digest-msg error'; msgEl.textContent = 'Enter the email to unsubscribe.'; return; }
+            try {
+                const res = await fetch(`${API_BASE}/digest/unsubscribe`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email }),
+                });
+                const data = await res.json();
+                if (data.status === 'unsubscribed') {
+                    msgEl.className = 'digest-msg success';
+                    msgEl.textContent = `${email} has been unsubscribed.`;
+                } else {
+                    msgEl.className = 'digest-msg error';
+                    msgEl.textContent = `${email} was not found in the subscriber list.`;
+                }
+            } catch (err) {
+                msgEl.className = 'digest-msg error';
+                msgEl.textContent = 'Failed to unsubscribe: ' + err.message;
+            }
+        }
+        document.getElementById('digest-email').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); digestSubscribe(); }
+        });
     </script>
 </body>
 </html>

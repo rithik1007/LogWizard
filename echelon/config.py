@@ -49,6 +49,12 @@ class Settings(BaseSettings):
     digest_send_minute: int = 0
     digest_subscribers_file: str = "./data/digest_subscribers.json"
 
+    # Azure DevOps (build/pipeline integration)
+    azdevops_org: str = ""           # e.g. "wk-gbs-es"
+    azdevops_project: str = ""       # e.g. "GBSInfraDevOps"
+    azdevops_pat: str = ""           # Personal Access Token (Build Read + Code Read)
+    azdevops_folder: str = "\\STEP-CI"  # Pipeline folder scope — only show pipelines under this path
+
     model_config = {"env_file": str(_ENV_FILE), "env_file_encoding": "utf-8"}
 
 
@@ -65,12 +71,14 @@ APP_REGISTRY: dict[str, dict] = {
         "sourcetype": "kube:container:mya-prod",
         "description": "MyAccount — customer account management portal",
         "sources": ["db-pool", "auth-service", "session-manager", "user-profile", "scheduler", "api-gateway"],
+        "pipelines": ["mya", "myaccount"],  # substrings to match pipeline names
     },
     "sdp": {
         "index": "sdp-caas-nonprod",
         "sourcetype": "kube:container:sdp-dev",
-        "description": "SDP — service delivery platform (dev/nonprod)",
+        "description": "STEP Data Portal — enterprise data platform",
         "sources": ["order-service", "payment-gw", "catalog-service", "notification-svc", "inventory-service"],
+        "pipelines": ["step-data-portal", "edp"],  # substrings to match pipeline names
     },
     # Add more apps below — just copy the block above and change the values.
 }
@@ -85,7 +93,8 @@ APP_ALIASES: dict[str, str] = {
     "sdp": "sdp",
     "sdp-caas": "sdp",
     "sdp-dev": "sdp",
-    "service delivery platform": "sdp",
+    "step-data-portal": "sdp",
+    "step data portal": "sdp",
     "enterprise data portal": "sdp",
     "edp": "sdp",
 }

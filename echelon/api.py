@@ -5,6 +5,7 @@ FastAPI server — REST + streaming endpoint for Echelon AI.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Optional
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -157,6 +158,99 @@ def digest_preview():
     return HTMLResponse(content=html)
 
 
+# ── Azure DevOps / Builds API ─────────────────────────────────
+
+@app.get("/api/builds")
+def api_builds(hours: int = 24, top: int = 50, app: Optional[str] = None):
+    """Get recent pipeline builds from Azure DevOps.
+
+    Builds are scoped to the configured folder (``AZDEVOPS_FOLDER``, default
+    ``\\STEP-CI``) and optionally filtered to a specific app registered in
+    ``APP_REGISTRY`` (e.g. ``?app=myaccount`` or ``?app=sdp``).
+    """
+    from echelon.sources.azdevops_source import get_azdevops_client
+    client = get_azdevops_client()
+    if not client.is_configured:
+        return {"connected": False, "builds": [], "message": "Azure DevOps not configured. Set AZDEVOPS_ORG, AZDEVOPS_PROJECT, AZDEVOPS_PAT in .env"}
+
+    builds = client.get_all_recent_builds(hours=hours, top=top, app=app)
+    return {
+        "connected": True,
+        "count": len(builds),
+        "builds": [
+            {
+                "id": b.id,
+                "name": b.name,
+                "status": b.status,
+                "result": b.result,
+                "start_time": b.start_time.isoformat() if b.start_time else None,
+                "finish_time": b.finish_time.isoformat() if b.finish_time else None,
+                "branch": b.source_branch,
+                "commit": b.source_version,
+                "requested_by": b.requested_by,
+                "pipeline": b.pipeline_name,
+                "url": b.url,
+            }
+            for b in builds
+        ],
+    }
+
+
+@app.get("/api/builds/pipelines")
+def api_pipelines():
+    """List all pipeline definitions."""
+    from echelon.sources.azdevops_source import get_azdevops_client
+    client = get_azdevops_client()
+    if not client.is_configured:
+        return {"connected": False, "pipelines": []}
+    pipelines = client.list_pipelines()
+    return {"connected": True, "pipelines": pipelines}
+
+
+@app.get("/api/builds/health")
+def api_builds_health():
+    """Check Azure DevOps connection."""
+    from echelon.sources.azdevops_source import get_azdevops_client
+    return get_azdevops_client().health_check()
+
+
+@app.get("/api/builds/{build_id}")
+def api_build_detail(build_id: int):
+    """Get detailed build summary with stages, jobs, and tasks."""
+    from echelon.sources.azdevops_source import get_azdevops_client
+    client = get_azdevops_client()
+    if not client.is_configured:
+        return {"connected": False, "error": "Azure DevOps not configured"}
+    summary = client.get_build_summary(build_id)
+    summary["connected"] = "error" not in summary
+    return summary
+
+
+@app.get("/api/commits")
+def api_commits(repo: str = "", hours: int = 24, top: int = 20):
+    """Get recent commits from Azure DevOps repos."""
+    from echelon.sources.azdevops_source import get_azdevops_client
+    client = get_azdevops_client()
+    if not client.is_configured:
+        return {"connected": False, "commits": []}
+    commits = client.get_recent_commits(repo_name=repo or None, hours=hours, top=top)
+    return {
+        "connected": True,
+        "count": len(commits),
+        "commits": [
+            {
+                "sha": c.sha,
+                "message": c.message,
+                "author": c.author,
+                "timestamp": c.timestamp.isoformat(),
+                "url": c.url,
+            }
+            for c in commits
+        ],
+    }
+
+
+
 # ── UI ────────────────────────────────────────────────────────
 @app.get("/")
 def serve_ui():
@@ -168,36 +262,103 @@ def serve_dashboard():
     return FileResponse(_STATIC_DIR / "dashboard.html")
 
 
+@app.get("/architecture")
+def serve_architecture():
+    return FileResponse(_STATIC_DIR / "architecture.html")
+
+
 # ── Dashboard Data API ────────────────────────────────────────
 
 @app.get("/api/dashboard")
-def dashboard_data(minutes: int = 1440):
+def dashboard_data(minutes: int = 1440, app: Optional[str] = None):
     """Return structured data for the dashboard charts.
 
     Args:
         minutes: Look-back window (default 1440 = 24 hours).
+        app: Optional app name to filter results (e.g. 'myaccount', 'sdp').
     """
     from collections import Counter
     from datetime import datetime, timedelta
 
     from echelon.config import APP_REGISTRY
+    from echelon.sources.splunk_source import SplunkSource
 
     agent = _get_agent()
-    source = agent.log_source
+    base_source = agent.log_source
 
     end = datetime.now()
     start = end - timedelta(minutes=minutes)
-    entries = source.query(start, end, max_results=5000)
 
-    # Build source-to-app mapping
+    # Determine which apps to query
+    filter_app = app.strip().lower() if app else None
+    apps_to_query = {}
+    for app_name, info in APP_REGISTRY.items():
+        if filter_app and app_name != filter_app:
+            continue
+        apps_to_query[app_name] = info
+
+    # Query each app's Splunk index separately so we get logs from all apps
+    all_entries: list = []
+    entry_app_map: dict = {}  # id(entry) -> app_name
+    per_app_limit = max(1000, 5000 // max(len(apps_to_query), 1))
+
+    for app_name, info in apps_to_query.items():
+        app_index = info.get("index")
+        app_sourcetype = info.get("sourcetype")
+        if not app_index:
+            continue
+        try:
+            app_source = SplunkSource(index=app_index, sourcetype=app_sourcetype)
+            app_entries = app_source.query(start, end, max_results=per_app_limit)
+            for e in app_entries:
+                entry_app_map[id(e)] = app_name
+            all_entries.extend(app_entries)
+        except Exception:
+            # If one app's index fails, continue with others
+            pass
+
+    # If no app-specific entries (e.g. no APP_REGISTRY indexes), fall back to default
+    if not all_entries and not filter_app:
+        all_entries = base_source.query(start, end, max_results=5000)
+
+    entries = all_entries
+
+    # Build source-to-app mapping (exact keys)
     source_to_app: dict[str, str] = {}
     for app_name, info in APP_REGISTRY.items():
         if info.get("index"):
-            source_to_app[info["index"]] = app_name
+            source_to_app[info["index"].lower()] = app_name
         if info.get("sourcetype"):
-            source_to_app[info["sourcetype"]] = app_name
+            source_to_app[info["sourcetype"].lower()] = app_name
         for src in info.get("sources", []):
             source_to_app[src.lower()] = app_name
+
+    def _match_app(entry) -> str:
+        """Resolve a log entry to an app name using direct map, metadata, source path, and patterns."""
+        # 0. Direct map from per-app query (most reliable)
+        direct = entry_app_map.get(id(entry))
+        if direct:
+            return direct
+        # 1. Try Splunk metadata fields (index, sourcetype)
+        idx = (entry.metadata.get("index") or "").lower()
+        if idx and idx in source_to_app:
+            return source_to_app[idx]
+        st = (entry.metadata.get("sourcetype") or "").lower()
+        if st and st in source_to_app:
+            return source_to_app[st]
+        # 2. Try exact source match
+        src_lower = entry.source.lower()
+        if src_lower in source_to_app:
+            return source_to_app[src_lower]
+        # 3. Try pipeline/component substring match on source path
+        for an, reg_info in APP_REGISTRY.items():
+            for pat in reg_info.get("pipelines", []):
+                if pat.lower() in src_lower:
+                    return an
+            for comp in reg_info.get("sources", []):
+                if comp.lower() in src_lower:
+                    return an
+        return "other"
 
     # Per-level counts
     level_counts: Counter = Counter()
@@ -213,19 +374,14 @@ def dashboard_data(minutes: int = 1440):
     source_counts: Counter = Counter()
 
     for e in entries:
+        matched_app = _match_app(e)
+
+        # If filtering by app, skip entries that don't belong
+        if filter_app and matched_app != filter_app:
+            continue
+
         level_counts[e.level] += 1
         source_counts[e.source] += 1
-
-        # Map to app
-        matched_app = source_to_app.get(e.source.lower(), "other")
-        if matched_app == "other":
-            for an, info in APP_REGISTRY.items():
-                for src in info.get("sources", []):
-                    if src.lower() in e.source.lower():
-                        matched_app = an
-                        break
-                if matched_app != "other":
-                    break
 
         app_totals[matched_app] += 1
         if e.level in ("ERROR", "FATAL"):
@@ -250,13 +406,15 @@ def dashboard_data(minutes: int = 1440):
         else:
             timeline[hour_key]["info"] += 1
 
-    # Cluster errors
+    # Cluster errors — include app name
     error_clusters: Counter = Counter()
     for em in error_messages:
         error_clusters[em["message"][:100]] += 1
     top_clusters = [
         {"pattern": p, "count": c, "source": next(
             (em["source"] for em in error_messages if em["message"][:100] == p), "?"
+        ), "app": next(
+            (em["app"] for em in error_messages if em["message"][:100] == p), "unknown"
         )}
         for p, c in error_clusters.most_common(10)
     ]
@@ -287,6 +445,10 @@ def dashboard_data(minutes: int = 1440):
     # Sort: critical first
     status_order = {"critical": 0, "warning": 1, "healthy": 2, "inactive": 3}
     apps_status.sort(key=lambda x: status_order.get(x["status"], 9))
+
+    # Filter apps list when a specific app is requested
+    if filter_app:
+        apps_status = [a for a in apps_status if a["name"] == filter_app]
 
     # Timeline sorted
     sorted_timeline = sorted(timeline.items())

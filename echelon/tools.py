@@ -721,6 +721,280 @@ def show_digest_subscribers() -> str:
     return "\n".join(lines)
 
 
+# ── Deployment / Build correlation tools ──────────────────────────
+
+
+@tool
+def get_recent_builds(hours: int = 0, pipeline_name: str = "", app: str = "", latest_only: bool = False) -> str:
+    """Get recent CI/CD pipeline builds from Azure DevOps.
+
+    Builds are scoped to the STEP-CI folder (MyAccount and STEP Data Portal pipelines).
+
+    IMPORTANT:
+    - When the user asks about "the last build" or "latest build", set
+      latest_only=True and hours=0 so you always find the most recent build
+      regardless of when it ran.
+    - When the user asks about recent builds or a time range, use hours > 0.
+    - hours=0 means no time filter (fetch latest builds regardless of age).
+
+    After finding the latest build, you should call get_build_details(build_id)
+    to drill into its stages, jobs, and tasks.
+
+    Args:
+        hours: Look-back window in hours. Use 0 for no time limit (default 0).
+        pipeline_name: Optional — filter by pipeline name.
+        app: Optional — filter by app name: "myaccount" or "sdp".
+        latest_only: If True, only return the single most recent build.
+    """
+    from echelon.sources.azdevops_source import get_azdevops_client
+
+    client = get_azdevops_client()
+    if not client.is_configured:
+        return "Azure DevOps is not configured. Pipeline correlation not available."
+
+    if pipeline_name:
+        pipelines = client.list_pipelines()
+        pid = None
+        for p in pipelines:
+            if pipeline_name.lower() in p.get("name", "").lower():
+                pid = p["id"]
+                break
+        builds = client.get_pipeline_runs(pipeline_id=pid, pipeline_name=pipeline_name, top=20)
+    else:
+        top = 1 if latest_only else 20
+        builds = client.get_all_recent_builds(hours=hours, top=top, app=app or None)
+
+    if not builds:
+        period = f"in the last {hours} hours" if hours > 0 else "at all"
+        return f"No builds found {period}."
+
+    if latest_only:
+        b = builds[0]
+        icon = {"succeeded": "✅", "failed": "❌", "partiallySucceeded": "⚠️"}.get(b.result, "⏳")
+        time_str = b.finish_time.strftime("%Y-%m-%d %H:%M") if b.finish_time else "in progress"
+        return (
+            f"**Latest Build:**\n"
+            f"{icon} **{b.name}** | {b.pipeline_name}\n"
+            f"   Build ID: {b.id}\n"
+            f"   Status: {b.result} | Branch: {b.source_branch} | Commit: {b.source_version}\n"
+            f"   By: {b.requested_by} | Finished: {time_str}\n\n"
+            f"Use get_build_details(build_id={b.id}) to see the full stage/task breakdown."
+        )
+
+    period = f"last {hours}h" if hours > 0 else "all time"
+    lines = [f"**Recent Builds** ({period}, {len(builds)} found):\n"]
+    for b in builds:
+        icon = {"succeeded": "✅", "failed": "❌", "partiallySucceeded": "⚠️"}.get(b.result, "⏳")
+        time_str = b.finish_time.strftime("%Y-%m-%d %H:%M") if b.finish_time else "in progress"
+        lines.append(
+            f"{icon} **{b.name}** (ID: {b.id}) | {b.pipeline_name}\n"
+            f"   Status: {b.result} | Branch: {b.source_branch} | Commit: {b.source_version}\n"
+            f"   By: {b.requested_by} | Finished: {time_str}"
+        )
+    return "\n".join(lines)
+
+
+@tool
+def correlate_deployment_with_errors(error_start_time: str, hours_before: int = 6) -> str:
+    """Find builds/deployments that happened before an error spike.
+
+    Call this when you detect errors starting at a specific time — this tool
+    checks if any deployment happened shortly before, which could be the cause.
+
+    Args:
+        error_start_time: ISO-8601 datetime when errors started (e.g. "2026-04-07T10:05:00").
+        hours_before: How many hours before the error to search for builds (default 6).
+    """
+    from echelon.sources.azdevops_source import get_azdevops_client
+
+    client = get_azdevops_client()
+    if not client.is_configured:
+        return "Azure DevOps is not configured. Cannot correlate deployments."
+
+    try:
+        error_time = datetime.fromisoformat(error_start_time)
+    except ValueError:
+        return "Invalid datetime format. Use ISO-8601 (e.g. 2026-04-07T10:05:00)."
+
+    builds = client.get_all_recent_builds(hours=hours_before + 24, top=50)
+    if not builds:
+        return "No builds found to correlate with."
+
+    # Find builds that finished within hours_before of the error
+    window_start = error_time - timedelta(hours=hours_before)
+    relevant = []
+    for b in builds:
+        if b.finish_time and window_start <= b.finish_time <= error_time:
+            relevant.append(b)
+
+    if not relevant:
+        return (
+            f"No deployments found in the {hours_before}h before {error_start_time}.\n"
+            f"This error is likely NOT deployment-related."
+        )
+
+    lines = [
+        f"**🔍 Deployment Correlation** — {len(relevant)} build(s) found before error at {error_start_time}:\n"
+    ]
+    for b in relevant:
+        icon = {"succeeded": "✅", "failed": "❌"}.get(b.result, "⚠️")
+        delta = error_time - b.finish_time if b.finish_time else timedelta(0)
+        mins = int(delta.total_seconds() / 60)
+        lines.append(
+            f"{icon} **{b.name}** ({b.pipeline_name})\n"
+            f"   Finished: {b.finish_time.strftime('%H:%M')} ({mins} min before error)\n"
+            f"   Result: {b.result} | Branch: {b.source_branch} | Commit: {b.source_version}\n"
+            f"   By: {b.requested_by}"
+        )
+
+    if any(b.result == "succeeded" for b in relevant):
+        lines.append(
+            "\n⚠️ **A successful deployment occurred shortly before the errors — "
+            "this is a likely trigger. Check the commit changes.**"
+        )
+    if any(b.result == "failed" for b in relevant):
+        lines.append(
+            "\n❌ **A failed build was detected — check if a partial deployment occurred.**"
+        )
+
+    return "\n".join(lines)
+
+
+@tool
+def get_recent_commits(repo_name: str = "", hours: int = 24) -> str:
+    """Get recent code commits from Azure DevOps.
+
+    Use this to see what code changes were made recently, which can help
+    identify root causes of new errors.
+
+    Args:
+        repo_name: Optional — specific repository name. Leave empty for default.
+        hours: Look-back window in hours (default 24).
+    """
+    from echelon.sources.azdevops_source import get_azdevops_client
+
+    client = get_azdevops_client()
+    if not client.is_configured:
+        return "Azure DevOps is not configured. Commit history not available."
+
+    commits = client.get_recent_commits(repo_name=repo_name or None, hours=hours, top=15)
+    if not commits:
+        return f"No commits found in the last {hours} hours."
+
+    lines = [f"**Recent Commits** (last {hours}h, {len(commits)} found):\n"]
+    for c in commits:
+        lines.append(
+            f"• `{c.sha}` — {c.message}\n"
+            f"  By: {c.author} | {c.timestamp.strftime('%Y-%m-%d %H:%M')}"
+        )
+    return "\n".join(lines)
+
+
+@tool
+def get_build_details(build_id: int = 0, build_number: str = "", app: str = "") -> str:
+    """Get detailed information about a specific build — its stages, jobs, and individual tasks.
+
+    Use this after get_recent_builds to drill into a specific build and check
+    which steps succeeded or failed. Shows the same detail you'd see when
+    clicking into a build run in Azure DevOps.
+
+    For FAILED builds, this tool also fetches the actual error logs from the
+    failing task so you can analyse the root cause and suggest a fix.
+
+    You can look up a build by EITHER:
+    - build_id: The numeric Azure DevOps build ID (e.g. 60918)
+    - build_number: The human-readable build number (e.g. "2026.4.8.4")
+
+    When the user says "build 2026.4.8.4 failed" → use build_number="2026.4.8.4"
+    When the user says "build 60918" → use build_id=60918
+
+    Args:
+        build_id: Numeric build ID. Use 0 if using build_number instead.
+        build_number: Human-readable build number (e.g. "2026.4.8.4"). Takes priority if both given.
+        app: Optional app name to narrow the search when using build_number (e.g. "myaccount", "sdp").
+    """
+    from echelon.sources.azdevops_source import get_azdevops_client
+
+    client = get_azdevops_client()
+    if not client.is_configured:
+        return "Azure DevOps is not configured."
+
+    # Resolve build_number to build_id if needed
+    if build_number:
+        found = client.find_build_by_number(build_number, app=app or None)
+        if not found:
+            return f"No build found with number '{build_number}'. Check the number and try again."
+        build_id = found.id
+
+    if not build_id:
+        return "Please provide either a build_id or build_number."
+
+    data = client.get_build_summary(build_id)
+    if data.get("error"):
+        return f"Error: {data['error']}"
+
+    lines = [
+        f"**Build #{data['build_id']}** — {data['name']}",
+        f"Pipeline: {data['pipeline']} | Result: {data['result']} | Branch: {data['branch']}",
+        f"Requested by: {data['requested_by']} | Commit: {data['commit']}",
+    ]
+
+    # Show record breakdown for debugging
+    rc = data.get("record_type_counts", {})
+    lines.append(f"Timeline records: {rc.get('total_records', 0)} total "
+                 f"({rc.get('stages', 0)} stages, {rc.get('phases', 0)} phases, "
+                 f"{rc.get('jobs', 0)} jobs, {rc.get('tasks', 0)} tasks)")
+    lines.append("")
+
+    for stage in data.get("stages", []):
+        s_icon = {"succeeded": "✅", "failed": "❌"}.get(stage["result"], "⏳")
+        lines.append(f"{s_icon} **Stage: {stage['name']}**")
+        for job in stage.get("jobs", []):
+            lines.append(f"  Job: {job['name']} — {job['result']}")
+            for task in job.get("tasks", []):
+                t_icon = {"succeeded": "✅", "failed": "❌", "skipped": "⏭️"}.get(task["result"], "⏳")
+                dur = task["duration_ms"]
+                dur_str = f"{dur // 1000}s" if dur < 60000 else f"{dur // 60000}m {(dur % 60000) // 1000}s"
+                extra = ""
+                if task["error_count"] > 0:
+                    extra = f" ⚠️ {task['error_count']} error(s)"
+                if task["warning_count"] > 0:
+                    extra += f" ⚠️ {task['warning_count']} warning(s)"
+                lines.append(f"    {t_icon} {task['name']} ({dur_str}){extra}")
+        lines.append("")
+
+    if data.get("total_errors", 0) > 0:
+        lines.append(f"❌ **Total errors: {data['total_errors']}**")
+    if data.get("total_warnings", 0) > 0:
+        lines.append(f"⚠️ Total warnings: {data['total_warnings']}")
+
+    # For failed builds, fetch logs from the failing task(s)
+    failed_tasks = data.get("failed_tasks", [])
+    if failed_tasks:
+        lines.append(f"\n🔴 **Failed task(s): {', '.join(failed_tasks)}**")
+
+    if data["result"] == "failed":
+        lines.append("\n--- FAILED TASK LOGS ---")
+        log_found = False
+        for stage in data.get("stages", []):
+            for job in stage.get("jobs", []):
+                for task in job.get("tasks", []):
+                    if task.get("result") == "failed" and task.get("log_url"):
+                        log_text = client.get_build_log(task["log_url"], tail=60)
+                        if log_text:
+                            log_found = True
+                            lines.append(f"\n📋 **Log for failed task: {task['name']}**")
+                            lines.append("```")
+                            lines.append(log_text)
+                            lines.append("```")
+        if not log_found:
+            lines.append("(No log URLs available for failed tasks — check Azure DevOps UI directly)")
+
+        lines.append("\n**Analyse the logs above to determine the root cause and suggest a fix.**")
+
+    return "\n".join(lines)
+
+
 # ── All tools list ────────────────────────────────────────────────
 
 ALL_TOOLS = [
@@ -744,4 +1018,8 @@ ALL_TOOLS = [
     subscribe_to_digest,
     unsubscribe_from_digest,
     show_digest_subscribers,
+    get_recent_builds,
+    correlate_deployment_with_errors,
+    get_recent_commits,
+    get_build_details,
 ]

@@ -4,33 +4,43 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Echelon AI — Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <style>
         :root {
-            --bg-primary: #0f1117;
-            --bg-secondary: #1a1d27;
-            --bg-card: #1e2231;
-            --border: #2e3144;
-            --text-primary: #e4e6f0;
+            --bg-primary: #0a0b10;
+            --bg-secondary: #12141c;
+            --bg-card: #161922;
+            --border: #232640;
+            --border-hover: #3b3f5c;
+            --text-primary: #eaecf5;
             --text-secondary: #9ba1b8;
-            --text-muted: #6b7194;
+            --text-muted: #5c6180;
             --accent: #6c63ff;
-            --accent-hover: #7f78ff;
-            --error: #ff6b6b;
-            --error-bg: rgba(255,107,107,0.1);
-            --warn: #ffa94d;
-            --warn-bg: rgba(255,169,77,0.1);
-            --success: #51cf66;
-            --success-bg: rgba(81,207,102,0.1);
-            --info: #339af0;
-            --inactive: #4a5568;
+            --accent-hover: #837dff;
+            --accent-glow: rgba(108,99,255,0.12);
+            --error: #f87171;
+            --error-bg: rgba(248,113,113,0.1);
+            --warn: #fbbf24;
+            --warn-bg: rgba(251,191,36,0.1);
+            --success: #34d399;
+            --success-bg: rgba(52,211,153,0.1);
+            --info: #60a5fa;
+            --inactive: #5c6180;
+            --radius: 12px;
+            --radius-sm: 8px;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+            --shadow-md: 0 4px 16px rgba(0,0,0,0.35);
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--bg-primary);
             color: var(--text-primary);
             min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
         /* ── Header ───────────────── */
@@ -42,27 +52,30 @@
         .logo { display: flex; align-items: center; gap: 10px; }
         .logo svg { width: 26px; height: 26px; color: var(--accent); }
         .logo h1 {
-            font-size: 17px; font-weight: 600;
-            background: linear-gradient(135deg, var(--accent), #a78bfa);
+            font-size: 17px; font-weight: 700; letter-spacing: -0.3px;
+            background: linear-gradient(135deg, #7c73ff, #a78bfa, #6c63ff);
+            background-size: 200% 200%; animation: gradientShift 4s ease infinite;
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         }
+        @keyframes gradientShift { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
         .header-actions { display: flex; align-items: center; gap: 12px; }
         .nav-link {
-            color: var(--text-secondary); text-decoration: none; font-size: 13px;
-            padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border);
-            transition: all 0.15s;
+            color: var(--text-secondary); text-decoration: none; font-size: 13px; font-weight: 500;
+            padding: 7px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+            transition: all 0.2s; font-family: inherit;
         }
-        .nav-link:hover { color: var(--text-primary); border-color: var(--accent); background: rgba(108,99,255,0.08); }
+        .nav-link:hover { color: var(--text-primary); border-color: var(--accent); background: var(--accent-glow); }
         .time-select {
             background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border);
-            border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer; outline: none;
+            border-radius: var(--radius-sm); padding: 7px 14px; font-size: 13px; cursor: pointer; outline: none; font-family: inherit; transition: border-color 0.15s;
         }
-        .time-select:focus { border-color: var(--accent); }
+        .time-select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
         .refresh-btn {
-            background: var(--accent); color: #fff; border: none; border-radius: 6px;
-            padding: 6px 14px; font-size: 13px; cursor: pointer; font-weight: 600;
+            background: linear-gradient(135deg, var(--accent), #8078ff); color: #fff; border: none; border-radius: var(--radius-sm);
+            padding: 7px 16px; font-size: 13px; cursor: pointer; font-weight: 600; font-family: inherit; transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(108,99,255,0.25);
         }
-        .refresh-btn:hover { background: var(--accent-hover); }
+        .refresh-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(108,99,255,0.35); }
         .last-updated { font-size: 11px; color: var(--text-muted); }
 
         /* ── Layout ───────────────── */
@@ -71,9 +84,10 @@
         /* ── KPI Row ──────────────── */
         .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
         .kpi-card {
-            background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
-            padding: 18px 20px; position: relative; overflow: hidden;
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+            padding: 20px 22px; position: relative; overflow: hidden; transition: all 0.2s;
         }
+        .kpi-card:hover { border-color: var(--border-hover); box-shadow: var(--shadow-sm); }
         .kpi-card::before {
             content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%;
         }
@@ -94,9 +108,10 @@
         .charts-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 24px; }
         .chart-card {
             background: var(--bg-card); border: 1px solid var(--border);
-            border-radius: 10px; padding: 20px;
+            border-radius: var(--radius); padding: 22px; transition: border-color 0.2s;
         }
-        .chart-title { font-size: 14px; font-weight: 600; margin-bottom: 14px; color: var(--text-primary); }
+        .chart-card:hover { border-color: var(--border-hover); }
+        .chart-title { font-size: 14px; font-weight: 700; margin-bottom: 14px; color: var(--text-primary); letter-spacing: -0.2px; }
         .chart-container { position: relative; width: 100%; }
         .chart-container.timeline { height: 260px; }
         .chart-container.doughnut { height: 240px; display: flex; justify-content: center; }
@@ -106,9 +121,10 @@
         .apps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
         .app-card {
             background: var(--bg-card); border: 1px solid var(--border);
-            border-radius: 10px; padding: 18px 20px;
-            display: flex; align-items: flex-start; gap: 14px;
+            border-radius: var(--radius); padding: 20px 22px;
+            display: flex; align-items: flex-start; gap: 14px; transition: all 0.2s;
         }
+        .app-card:hover { border-color: var(--border-hover); box-shadow: var(--shadow-sm); transform: translateY(-1px); }
         .app-icon {
             width: 42px; height: 42px; border-radius: 10px; display: flex;
             align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;
@@ -125,10 +141,39 @@
         .app-stat .dot { width: 6px; height: 6px; border-radius: 50%; }
         .dot-error { background: var(--error); }
         .dot-warn { background: var(--warn); }
+        .error-link {
+            text-decoration: none; color: var(--error); cursor: pointer;
+            padding: 2px 8px; border-radius: 6px; border: 1px solid transparent;
+            transition: all 0.2s; font-weight: 600;
+        }
+        .error-link:hover { background: var(--error-bg); border-color: rgba(248,113,113,0.3); }
+
+        /* App filter tabs */
+        .app-filter-tab {
+            background: var(--bg-card); color: var(--text-muted); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); padding: 6px 14px; font-size: 12px; cursor: pointer;
+            font-weight: 500; transition: all 0.15s; font-family: inherit;
+        }
+        .app-filter-tab:hover { border-color: var(--border-hover); color: var(--text-primary); }
+        .app-filter-tab.active {
+            background: linear-gradient(135deg, var(--accent), #8078ff); color: #fff;
+            border-color: var(--accent); box-shadow: 0 2px 8px rgba(108,99,255,0.25);
+        }
+
+        /* Clickable status badges */
+        .status-link {
+            text-decoration: none; cursor: pointer; transition: all 0.2s;
+            border-radius: 6px; padding: 2px 4px; margin: -2px -4px;
+        }
+        .status-link:hover { filter: brightness(1.2); transform: scale(1.05); }
+        .status-link .investigate-hint {
+            font-size: 9px; opacity: 0; transition: opacity 0.2s; margin-left: 4px;
+        }
+        .status-link:hover .investigate-hint { opacity: 1; }
         .dot-ok { background: var(--success); }
         .app-badge {
             font-size: 10px; font-weight: 700; text-transform: uppercase;
-            padding: 3px 8px; border-radius: 4px; letter-spacing: 0.3px;
+            padding: 3px 10px; border-radius: 5px; letter-spacing: 0.4px;
         }
         .badge-critical { background: var(--error-bg); color: var(--error); }
         .badge-warning { background: var(--warn-bg); color: var(--warn); }
@@ -143,7 +188,7 @@
             letter-spacing: 0.5px; color: var(--text-muted); border-bottom: 1px solid var(--border);
         }
         .error-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
-        .error-table tr:hover td { background: rgba(108,99,255,0.04); }
+        .error-table tr:hover td { background: rgba(108,99,255,0.06); }
         .error-count {
             background: var(--error-bg); color: var(--error); font-weight: 700;
             padding: 2px 8px; border-radius: 10px; font-size: 12px;
@@ -174,6 +219,12 @@
         </div>
         <div class="header-actions">
             <a href="/" class="nav-link">← Chat</a>
+            <a href="/architecture" class="nav-link">Architecture</a>
+            <div class="app-filter-tabs" style="display:flex;gap:4px;">
+                <button class="app-filter-tab active" onclick="setDashApp(null,this)">All Apps</button>
+                <button class="app-filter-tab" onclick="setDashApp('myaccount',this)">MyAccount</button>
+                <button class="app-filter-tab" onclick="setDashApp('sdp',this)">SDP</button>
+            </div>
             <select class="time-select" id="time-range" onchange="loadDashboard()">
                 <option value="60">Last 1 Hour</option>
                 <option value="360">Last 6 Hours</option>
@@ -197,6 +248,14 @@
     <script>
     const API = window.location.origin;
     let timelineChart = null, levelChart = null;
+    let currentApp = null;  // null = all apps
+
+    function setDashApp(appName, btn) {
+        currentApp = appName;
+        document.querySelectorAll('.app-filter-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        loadDashboard();
+    }
 
     async function loadDashboard() {
         const minutes = document.getElementById('time-range').value;
@@ -204,7 +263,9 @@
         main.innerHTML = '<div class="loading"><div class="spinner"></div><div>Loading dashboard data…</div></div>';
 
         try {
-            const res = await fetch(`${API}/api/dashboard?minutes=${minutes}`);
+            let url = `${API}/api/dashboard?minutes=${minutes}`;
+            if (currentApp) url += `&app=${encodeURIComponent(currentApp)}`;
+            const res = await fetch(url);
             const d = await res.json();
             document.getElementById('last-updated').textContent = 'Updated: ' + new Date().toLocaleTimeString();
             render(d);
@@ -273,10 +334,11 @@
                     <div class="chart-title">Top Error Patterns</div>
                     ${d.top_error_clusters.length ? `
                     <table class="error-table">
-                        <tr><th>Count</th><th>Source</th><th>Error Pattern</th></tr>
+                        <tr><th>Count</th><th>Application</th><th>Source</th><th>Error Pattern</th></tr>
                         ${d.top_error_clusters.map(c => `
                             <tr>
                                 <td><span class="error-count">${c.count}×</span></td>
+                                <td><span class="app-badge ${c.app === 'other' ? 'badge-inactive' : 'badge-healthy'}" style="font-size:11px;">${esc(c.app === 'other' ? 'Unknown' : c.app)}</span></td>
                                 <td><span class="error-source">${esc(c.source)}</span></td>
                                 <td><span class="error-pattern" title="${esc(c.pattern)}">${esc(c.pattern)}</span></td>
                             </tr>
@@ -348,18 +410,34 @@
                 critical: 'badge-critical', warning: 'badge-warning',
                 healthy: 'badge-healthy', inactive: 'badge-inactive'
             };
+            const displayName = app.name.length <= 4 ? app.name.toUpperCase() : app.name.charAt(0).toUpperCase() + app.name.slice(1);
+
+            // Build AI investigation prompt based on status
+            const prompts = {
+                critical: `Analyze the recent errors and critical issues in ${app.name} application. What is happening, what is the root cause, and how can we fix it?`,
+                warning: `There are warnings in ${app.name} application. Analyze the recent warnings — what do they indicate and should we be concerned?`,
+                inactive: `The ${app.name} application (${app.description}) is showing as INACTIVE with 0 log entries. Can you investigate why? Check if the Splunk index "${app.name}" is reachable, if the application is running, and what could cause no logs to appear.`,
+                healthy: `Give me a health summary of the ${app.name} application — how is it performing?`
+            };
+            const askUrl = `/?ask=${encodeURIComponent(prompts[app.status] || prompts.healthy)}`;
+
             return `
             <div class="app-card">
                 <div class="app-icon ${app.status}">${icons[app.status] || '❓'}</div>
                 <div class="app-info">
                     <div style="display:flex;align-items:center;gap:8px;">
-                        <span class="app-name">${esc(app.name.length <= 4 ? app.name.toUpperCase() : app.name.charAt(0).toUpperCase() + app.name.slice(1))}</span>
-                        <span class="app-badge ${badges[app.status] || ''}">${app.status}</span>
+                        <span class="app-name">${esc(displayName)}</span>
+                        <a class="status-link" href="${askUrl}" title="Click to investigate with AI">
+                            <span class="app-badge ${badges[app.status] || ''}">${app.status}</span>
+                            <span class="investigate-hint">🔍</span>
+                        </a>
                     </div>
                     <div class="app-desc">${esc(app.description)}</div>
                     <div class="app-stats">
                         <span class="app-stat"><span class="dot dot-ok"></span> ${app.total} total</span>
-                        <span class="app-stat"><span class="dot dot-error"></span> ${app.errors} errors</span>
+                        ${app.errors > 0
+                            ? `<a class="app-stat error-link" href="/?ask=${encodeURIComponent('Analyze the recent errors in ' + app.name + ' application. What is happening and how can we fix it?')}" title="Click to investigate errors in AI chat"><span class="dot dot-error"></span> ${app.errors} errors ↗</a>`
+                            : `<span class="app-stat"><span class="dot dot-error"></span> ${app.errors} errors</span>`}
                         <span class="app-stat"><span class="dot dot-warn"></span> ${app.warnings} warnings</span>
                     </div>
                 </div>
@@ -369,9 +447,9 @@
 
     function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
 
-    // Auto-refresh every 60 seconds
+    // Auto-refresh every 24 hours (86 400 000 ms)
     loadDashboard();
-    setInterval(loadDashboard, 60000);
+    setInterval(loadDashboard, 86400000);
     </script>
 </body>
 </html>

@@ -102,36 +102,11 @@
         .message.assistant th,.message.assistant td { padding:8px 12px; border:1px solid var(--border); font-size:12.5px; text-align:left; }
         .message.assistant th { background:var(--bg-tertiary); font-weight:600; color:var(--accent); }
 
-        .typing-indicator {
-            align-self:flex-start; display:flex; align-items:center; gap:14px; padding:18px 24px;
-            background:var(--bg-card); border:1px solid var(--border); border-radius:16px;
-            border-bottom-left-radius:6px; box-shadow:var(--shadow-sm); animation:fadeIn 0.25s ease;
-        }
-        .typing-spinner {
-            width:32px; height:32px; position:relative; flex-shrink:0;
-        }
-        .typing-spinner .ring {
-            width:32px; height:32px; border-radius:50%;
-            border:2.5px solid var(--border);
-            border-top-color:var(--accent);
-            animation:spin 1s linear infinite;
-        }
-        .typing-spinner .brain {
-            position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-            font-size:14px; animation:pulse 2s ease-in-out infinite;
-        }
-        @keyframes spin { to{transform:rotate(360deg)} }
-        @keyframes pulse { 0%,100%{opacity:1;transform:translate(-50%,-50%) scale(1)} 50%{opacity:0.6;transform:translate(-50%,-50%) scale(0.85)} }
-        .typing-text { display:flex; flex-direction:column; gap:2px; }
-        .typing-label { font-size:13px; font-weight:600; color:var(--text-primary); }
-        .typing-status { font-size:11.5px; color:var(--text-muted); }
-        .typing-status .status-msg { animation:statusFade 1.5s ease-in-out infinite; }
-        @keyframes statusFade { 0%,100%{opacity:0.5} 50%{opacity:1} }
-        .typing-dots { display:inline-flex; gap:3px; margin-left:4px; vertical-align:middle; }
-        .typing-dots span { width:4px; height:4px; background:var(--accent); border-radius:50%; animation:dotBounce 1.4s infinite; }
-        .typing-dots span:nth-child(2) { animation-delay:0.2s; }
-        .typing-dots span:nth-child(3) { animation-delay:0.4s; }
-        @keyframes dotBounce { 0%,80%,100%{transform:translateY(0);opacity:0.4} 40%{transform:translateY(-4px);opacity:1} }
+        .typing-indicator { align-self:flex-start; display:flex; gap:5px; padding:18px 22px; background:var(--bg-card); border:1px solid var(--border); border-radius:16px; border-bottom-left-radius:6px; box-shadow:var(--shadow-sm); }
+        .typing-indicator span { width:7px; height:7px; background:var(--text-muted); border-radius:50%; animation:bounce 1.4s infinite; }
+        .typing-indicator span:nth-child(2) { animation-delay:0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay:0.4s; }
+        @keyframes bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-6px)} }
 
         /* ── Welcome screen ──────────────────────────────────── */
         .welcome { display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; gap:20px; color:var(--text-secondary); text-align:center; padding:40px; }
@@ -157,17 +132,6 @@
         #send-btn:disabled { opacity:0.35; cursor:not-allowed; transform:none; box-shadow:none; }
         #send-btn svg { width:18px; height:18px; }
         .input-hint { text-align:center; font-size:11px; color:var(--text-muted); margin-top:8px; }
-        /* ── Image upload ──────────────────────────────────── */
-        #attach-btn { width:46px; height:46px; background:var(--bg-tertiary); border:1px solid var(--border); border-radius:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; flex-shrink:0; color:var(--text-secondary); }
-        #attach-btn:hover { border-color:var(--accent); color:var(--accent); background:rgba(108,99,255,0.08); }
-        #attach-btn svg { width:20px; height:20px; }
-        .image-preview-bar { max-width:860px; margin:0 auto 8px; display:none; align-items:center; gap:10px; }
-        .image-preview-bar.visible { display:flex; }
-        .image-preview-bar img { height:64px; max-width:120px; object-fit:cover; border-radius:10px; border:1px solid var(--border); }
-        .image-preview-bar .img-name { font-size:12px; color:var(--text-secondary); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .image-preview-bar .img-remove { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:18px; padding:4px 8px; border-radius:6px; transition:color 0.15s; }
-        .image-preview-bar .img-remove:hover { color:#ff5c5c; }
-        .message.user .user-image { max-width:240px; max-height:180px; border-radius:10px; margin-top:8px; display:block; }
 
         /* ── Builds section ───────────────────────────────────── */
         .builds-header { display:flex; align-items:center; justify-content:space-between; padding:18px 28px; border-bottom:1px solid var(--border); background:var(--bg-secondary); }
@@ -258,7 +222,6 @@
             .input-row { gap:8px; }
             #user-input { padding:11px 14px; font-size:13px; min-height:42px; border-radius:12px; }
             #send-btn { width:42px; height:42px; border-radius:12px; }
-            #attach-btn { width:42px; height:42px; border-radius:12px; }
             .input-hint { display:none; }
             .welcome h2 { font-size:20px; }
             .welcome p { font-size:13px; }
@@ -283,110 +246,6 @@
             .builds-select { font-size:12px; padding:6px 10px; }
             .builds-refresh { padding:6px 12px; font-size:12px; }
         }
-
-        /* ── Theme toggle button ─────────────────────────── */
-        .theme-toggle {
-            background:none; border:1px solid var(--border); color:var(--text-muted);
-            cursor:pointer; padding:6px; border-radius:var(--radius-sm); display:flex;
-            align-items:center; justify-content:center; transition:all 0.2s; width:34px; height:34px;
-        }
-        .theme-toggle:hover { color:var(--text-primary); border-color:var(--accent); background:var(--accent-glow); }
-        .theme-toggle svg { width:18px; height:18px; }
-
-        /* ── Light Mode ──────────────────────────────────── */
-        [data-theme="light"] {
-            --bg-primary: #f5f6fa;
-            --bg-secondary: #ffffff;
-            --bg-tertiary: #eef0f6;
-            --bg-card: #ffffff;
-            --border: #d8dce6;
-            --border-hover: #b0b6c8;
-            --text-primary: #1a1d2a;
-            --text-secondary: #4a5068;
-            --text-muted: #7a8098;
-            --accent: #6c63ff;
-            --accent-hover: #5a52e0;
-            --accent-glow: rgba(108,99,255,0.08);
-            --accent-glow-strong: rgba(108,99,255,0.15);
-            --glass: rgba(0,0,0,0.02);
-            --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
-            --shadow-md: 0 4px 16px rgba(0,0,0,0.1);
-            --shadow-lg: 0 12px 40px rgba(0,0,0,0.12);
-        }
-        [data-theme="light"] .message.user { box-shadow:0 2px 12px rgba(108,99,255,0.2); }
-        [data-theme="light"] .message.assistant { background:#fff; border-color:#d8dce6; box-shadow:0 1px 4px rgba(0,0,0,0.06); }
-        [data-theme="light"] .message.assistant code { background:#f0f1f6; border-color:#d8dce6; color:#4a5068; }
-        [data-theme="light"] .message.assistant pre { background:#f0f1f6; border-color:#d8dce6; color:#2d3048; }
-        [data-theme="light"] .message.assistant strong { color:#5a52e0; }
-        [data-theme="light"] .welcome-icon { background:rgba(108,99,255,0.08); box-shadow:0 4px 20px rgba(108,99,255,0.1); }
-        [data-theme="light"] .main::before { background:radial-gradient(ellipse,rgba(108,99,255,0.04),transparent 70%); }
-        [data-theme="light"] .status-dot.ok { box-shadow:0 0 6px rgba(52,211,153,0.3); }
-        [data-theme="light"] #chat-area::-webkit-scrollbar-thumb { background:#c8ccd6; }
-        [data-theme="light"] .input-area { background:linear-gradient(to top,var(--bg-secondary),rgba(245,246,250,0.95)); border-top-color:#d8dce6; }
-
-        /* ── AI Databank ─────────────────────────────────── */
-        .databank-header { display:flex; align-items:center; justify-content:space-between; padding:24px 32px 0; flex-shrink:0; }
-        .databank-header h2 { margin:0; font-size:1.35rem; font-weight:700; color:var(--text-primary); }
-        .databank-stats { display:flex; gap:12px; padding:16px 32px; flex-shrink:0; }
-        .db-stat { background:var(--bg-card); border:1px solid var(--border); border-radius:12px; padding:14px 20px; flex:1; text-align:center; cursor:pointer; transition:all 0.2s; }
-        .db-stat:hover { border-color:var(--accent); background:var(--accent-glow); transform:translateY(-2px); box-shadow:0 4px 16px rgba(108,99,255,0.15); }
-        .db-stat .db-val { font-size:1.6rem; font-weight:700; color:var(--accent); }
-        .db-stat .db-lbl { font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-top:2px; }
-        .databank-toolbar { display:flex; align-items:center; gap:12px; padding:8px 32px 16px; flex-shrink:0; }
-        .db-search { flex:1; background:var(--bg-tertiary); border:1px solid var(--border); border-radius:8px; padding:10px 14px; color:var(--text-primary); font-size:0.88rem; outline:none; }
-        .db-search:focus { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-glow); }
-        .db-filter-btn { background:var(--bg-tertiary); border:1px solid var(--border); border-radius:8px; padding:8px 16px; color:var(--text-secondary); font-size:0.82rem; cursor:pointer; transition:all 0.15s; }
-        .db-filter-btn:hover, .db-filter-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
-        .db-add-btn { background:linear-gradient(135deg,var(--accent),var(--accent-hover)); color:#fff; border:none; border-radius:8px; padding:10px 20px; font-size:0.88rem; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px; transition:all 0.15s; }
-        .db-add-btn:hover { transform:translateY(-1px); box-shadow:0 4px 16px var(--accent-glow-strong); }
-        .databank-table-wrap { flex:1; overflow-y:auto; padding:0 32px 24px; }
-        .databank-table { width:100%; border-collapse:separate; border-spacing:0; }
-        .databank-table th { position:sticky; top:0; background:var(--bg-tertiary); padding:10px 14px; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); text-align:left; border-bottom:1px solid var(--border); z-index:1; }
-        .databank-table td { padding:12px 14px; font-size:0.85rem; color:var(--text-secondary); border-bottom:1px solid var(--border); vertical-align:top; }
-        .databank-table tr:hover td { background:var(--accent-glow); }
-        .db-badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:0.72rem; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; }
-        .db-badge.noise { background:rgba(52,211,153,0.15); color:#34d399; }
-        .db-badge.expected { background:rgba(52,211,153,0.15); color:#34d399; }
-        .db-badge.known_issue { background:rgba(96,165,250,0.15); color:#60a5fa; }
-        .db-badge.actionable { background:rgba(251,146,60,0.15); color:#fb923c; }
-        .db-badge.critical { background:rgba(239,68,68,0.15); color:#ef4444; }
-        .db-badge.configuration { background:rgba(167,139,250,0.15); color:#a78bfa; }
-        .db-badge.dependency { background:rgba(244,114,182,0.15); color:#f472b6; }
-        .db-badge.resolved { background:rgba(148,163,184,0.15); color:#94a3b8; }
-        .db-del-btn { background:none; border:none; color:var(--text-muted); cursor:pointer; padding:4px 8px; border-radius:6px; font-size:0.82rem; transition:all 0.15s; }
-        .db-del-btn:hover { background:rgba(239,68,68,0.15); color:#ef4444; }
-        .db-pattern { max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:'JetBrains Mono',monospace; font-size:0.78rem; }
-        .db-fix { max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .db-empty { text-align:center; padding:60px 20px; color:var(--text-muted); }
-        .db-empty-icon { font-size:3rem; margin-bottom:12px; opacity:0.3; }
-
-        /* Databank Add Modal */
-        .db-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:1000; justify-content:center; align-items:center; backdrop-filter:blur(4px); }
-        .db-modal-overlay.open { display:flex; }
-        .db-modal { background:var(--bg-secondary); border:1px solid var(--border); border-radius:16px; padding:28px 32px; width:560px; max-width:95vw; max-height:85vh; overflow-y:auto; box-shadow:var(--shadow-lg); }
-        .db-modal h3 { margin:0 0 20px; font-size:1.15rem; font-weight:700; color:var(--text-primary); }
-        .db-modal label { display:block; margin-bottom:4px; font-size:0.78rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; font-weight:600; }
-        .db-modal input, .db-modal textarea, .db-modal select { width:100%; background:var(--bg-tertiary); border:1px solid var(--border); border-radius:8px; padding:10px 12px; color:var(--text-primary); font-size:0.88rem; margin-bottom:14px; outline:none; box-sizing:border-box; font-family:inherit; }
-        .db-modal input:focus, .db-modal textarea:focus, .db-modal select:focus { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-glow); }
-        .db-modal textarea { resize:vertical; min-height:60px; }
-        .db-modal-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:8px; }
-        .db-modal-actions button { padding:10px 22px; border-radius:8px; font-size:0.88rem; font-weight:600; cursor:pointer; border:none; transition:all 0.15s; }
-        .db-cancel-btn { background:var(--bg-tertiary); color:var(--text-secondary); border:1px solid var(--border) !important; }
-        .db-cancel-btn:hover { border-color:var(--text-muted) !important; color:var(--text-primary); }
-        .db-save-btn { background:linear-gradient(135deg,var(--accent),var(--accent-hover)); color:#fff; }
-        .db-save-btn:hover { transform:translateY(-1px); box-shadow:0 4px 16px var(--accent-glow-strong); }
-        .db-type-tabs { display:flex; gap:8px; margin-bottom:18px; }
-        .db-type-tab { flex:1; padding:12px; border:1px solid var(--border); border-radius:10px; background:var(--bg-tertiary); cursor:pointer; text-align:center; transition:all 0.15s; }
-        .db-type-tab:hover { border-color:var(--accent); }
-        .db-type-tab.active { background:var(--accent-glow); border-color:var(--accent); }
-        .db-type-tab .tab-icon { font-size:1.3rem; margin-bottom:4px; }
-        .db-type-tab .tab-label { font-size:0.78rem; font-weight:600; color:var(--text-secondary); }
-        .db-type-tab.active .tab-label { color:var(--accent); }
-        .db-fix-fields { display:none; }
-        .db-fix-fields.show { display:block; }
-
-        [data-theme="light"] .db-modal { background:#fff; }
-        [data-theme="light"] .databank-table th { background:#f0f1f6; }
     </style>
 </head>
 <body>
@@ -439,12 +298,6 @@
                 </svg>
                 <span class="nav-label">Architecture</span>
             </a>
-            <div class="nav-item" onclick="switchSection('databank')" id="nav-databank">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/>
-                </svg>
-                <span class="nav-label">AI Databank</span>
-            </div>
             <div class="nav-item" onclick="openDigestModal()">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
@@ -453,19 +306,9 @@
             </div>
         </div>
         <div class="sidebar-footer">
-            <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;">
-                <div class="sidebar-status">
-                    <span class="status-dot" id="status-dot"></span>
-                    <span id="status-text" style="opacity:0;transition:opacity 0.2s;">Connecting...</span>
-                </div>
-                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode" id="theme-btn">
-                    <svg id="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
-                        <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-                    </svg>
-                    <svg id="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-                    </svg>
-                </button>
+            <div class="sidebar-status">
+                <span class="status-dot" id="status-dot"></span>
+                <span id="status-text" style="opacity:0;transition:opacity 0.2s;">Connecting...</span>
             </div>
         </div>
     </nav>
@@ -494,18 +337,7 @@
                 </div>
             </div>
             <div class="input-area">
-                <div class="image-preview-bar" id="image-preview-bar">
-                    <img id="image-preview-thumb" src="" alt="preview">
-                    <span class="img-name" id="image-preview-name"></span>
-                    <button class="img-remove" id="image-remove-btn" title="Remove image">&times;</button>
-                </div>
                 <div class="input-row">
-                    <input type="file" id="image-input" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
-                    <button id="attach-btn" title="Attach image">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
-                        </svg>
-                    </button>
                     <textarea id="user-input" rows="1" placeholder="Ask about a production incident..." autofocus></textarea>
                     <button id="send-btn" title="Send">
                         <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -513,7 +345,7 @@
                         </svg>
                     </button>
                 </div>
-                <div class="input-hint">Press Enter to send - Shift+Enter for new line &bull; Click <svg style="width:13px;height:13px;vertical-align:-2px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg> to attach an image</div>
+                <div class="input-hint">Press Enter to send - Shift+Enter for new line</div>
             </div>
         </div>
 
@@ -538,93 +370,6 @@
             </div>
             <div class="builds-content" id="builds-content">
                 <div class="builds-loading"><div class="spinner"></div><div>Loading builds...</div></div>
-            </div>
-        </div>
-
-        <!-- AI DATABANK SECTION -->
-        <div class="section-panel" id="section-databank">
-            <div class="databank-header">
-                <h2>&#129504; AI Databank</h2>
-                <db-add-btn></db-add-btn>
-            </div>
-            <div class="databank-stats" id="db-stats">
-                <div class="db-stat" onclick="dbStatToChat('total')" title="Ask AI about all learned patterns"><div class="db-val" id="db-total">—</div><div class="db-lbl">Total Entries</div></div>
-                <div class="db-stat" onclick="dbStatToChat('noise')" title="Ask AI about noise/known patterns"><div class="db-val" id="db-noise" style="color:#34d399">—</div><div class="db-lbl">Noise / Valid</div></div>
-                <div class="db-stat" onclick="dbStatToChat('actionable')" title="Ask AI about actionable errors"><div class="db-val" id="db-actionable" style="color:#fb923c">—</div><div class="db-lbl">Actionable</div></div>
-                <div class="db-stat" onclick="dbStatToChat('fixes')" title="Ask AI to list all known fixes"><div class="db-val" id="db-fixes" style="color:#60a5fa">—</div><div class="db-lbl">With Fix</div></div>
-            </div>
-            <div class="databank-toolbar">
-                <input class="db-search" type="text" placeholder="Search patterns, fixes, notes..." id="db-search" oninput="filterDatabank()">
-                <button class="db-filter-btn active" onclick="setDbFilter('all',this)">All</button>
-                <button class="db-filter-btn" onclick="setDbFilter('noise',this)">Noise</button>
-                <button class="db-filter-btn" onclick="setDbFilter('actionable',this)">Actionable</button>
-                <button class="db-add-btn" onclick="openDbModal()">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    Add Entry
-                </button>
-            </div>
-            <div class="databank-table-wrap">
-                <table class="databank-table">
-                    <thead>
-                        <tr>
-                            <th>Type</th>
-                            <th>Error Pattern</th>
-                            <th>App</th>
-                            <th>Root Cause / Note</th>
-                            <th>Fix / Action</th>
-                            <th>Source</th>
-                            <th>Seen</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody id="db-tbody"></tbody>
-                </table>
-                <div class="db-empty" id="db-empty" style="display:none;">
-                    <div class="db-empty-icon">&#129504;</div>
-                    <div>No entries yet. Teach the AI what's noise and what needs fixing.</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Databank Add Modal -->
-    <div class="db-modal-overlay" id="db-modal-overlay" onclick="if(event.target===this)closeDbModal()">
-        <div class="db-modal">
-            <h3>Add to AI Databank</h3>
-            <div class="db-type-tabs">
-                <div class="db-type-tab active" onclick="setDbEntryType('noise',this)">
-                    <div class="tab-icon">&#9989;</div>
-                    <div class="tab-label">Valid / Noise</div>
-                    <div style="font-size:0.7rem;color:var(--text-muted);margin-top:2px;">AI will ignore this</div>
-                </div>
-                <div class="db-type-tab" onclick="setDbEntryType('actionable',this)">
-                    <div class="tab-icon">&#9888;&#65039;</div>
-                    <div class="tab-label">Real Error + Fix</div>
-                    <div style="font-size:0.7rem;color:var(--text-muted);margin-top:2px;">AI will suggest fix</div>
-                </div>
-            </div>
-            <label>Error Pattern *</label>
-            <textarea id="db-pattern" placeholder="Paste the error message or pattern here..."></textarea>
-            <label>Application</label>
-            <input id="db-app" placeholder="e.g. MyAccount, SDP">
-            <label>Note</label>
-            <input id="db-note" placeholder="Why is this noise? Or brief description">
-            <div class="db-fix-fields" id="db-fix-fields">
-                <label>Root Cause</label>
-                <input id="db-rootcause" placeholder="What causes this error?">
-                <label>Fix / Resolution *</label>
-                <textarea id="db-fix" placeholder="How to fix this when it occurs..."></textarea>
-                <label>Severity</label>
-                <select id="db-severity">
-                    <option value="high">High</option>
-                    <option value="critical">Critical</option>
-                    <option value="medium" selected>Medium</option>
-                    <option value="low">Low</option>
-                </select>
-            </div>
-            <div class="db-modal-actions">
-                <button class="db-cancel-btn" onclick="closeDbModal()">Cancel</button>
-                <button class="db-save-btn" onclick="saveDbEntry()">Save to Databank</button>
             </div>
         </div>
     </div>
@@ -675,7 +420,6 @@
         if (navEl) navEl.classList.add('active');
         if (name === 'builds') loadBuilds();
         if (name === 'logs') userInput.focus();
-        if (name === 'databank') loadDatabank();
         // Close sidebar on mobile after nav
         if (window.innerWidth <= 768) closeSidebarMobile();
     }
@@ -706,184 +450,30 @@
     userInput.addEventListener('keydown', function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
     sendBtn.addEventListener('click', sendMessage);
 
-    // ── Image attach handling ───────────────────────────
-    var imageInput = document.getElementById('image-input');
-    var attachBtn = document.getElementById('attach-btn');
-    var imagePreviewBar = document.getElementById('image-preview-bar');
-    var imagePreviewThumb = document.getElementById('image-preview-thumb');
-    var imagePreviewName = document.getElementById('image-preview-name');
-    var imageRemoveBtn = document.getElementById('image-remove-btn');
-    var pendingImage = null; // { file, dataUrl }
-
-    attachBtn.addEventListener('click', function() { imageInput.click(); });
-    imageInput.addEventListener('change', function() {
-        var file = imageInput.files[0];
-        if (!file) return;
-        if (file.size > 20 * 1024 * 1024) { alert('Image too large (max 20 MB)'); imageInput.value = ''; return; }
-        var reader = new FileReader();
-        reader.onload = function(e) {
-            pendingImage = { file: file, dataUrl: e.target.result };
-            imagePreviewThumb.src = e.target.result;
-            imagePreviewName.textContent = file.name;
-            imagePreviewBar.classList.add('visible');
-        };
-        reader.readAsDataURL(file);
-    });
-    imageRemoveBtn.addEventListener('click', function() { clearPendingImage(); });
-    function clearPendingImage() {
-        pendingImage = null;
-        imageInput.value = '';
-        imagePreviewBar.classList.remove('visible');
-        imagePreviewThumb.src = '';
-        imagePreviewName.textContent = '';
-    }
-
-    // Allow paste images from clipboard
-    document.addEventListener('paste', function(e) {
-        if (document.activeElement !== userInput && !userInput.contains(document.activeElement)) return;
-        var items = (e.clipboardData || e.originalEvent.clipboardData).items;
-        for (var i = 0; i < items.length; i++) {
-            if (items[i].type.indexOf('image') !== -1) {
-                var file = items[i].getAsFile();
-                if (!file) continue;
-                e.preventDefault();
-                var reader = new FileReader();
-                reader.onload = function(ev) {
-                    pendingImage = { file: file, dataUrl: ev.target.result };
-                    imagePreviewThumb.src = ev.target.result;
-                    imagePreviewName.textContent = file.name || 'pasted-image.png';
-                    imagePreviewBar.classList.add('visible');
-                };
-                reader.readAsDataURL(file);
-                break;
-            }
-        }
-    });
-
-    // Allow drag & drop images onto the input area
-    var inputArea = document.querySelector('.input-area');
-    inputArea.addEventListener('dragover', function(e) { e.preventDefault(); inputArea.style.borderColor = 'var(--accent)'; });
-    inputArea.addEventListener('dragleave', function() { inputArea.style.borderColor = ''; });
-    inputArea.addEventListener('drop', function(e) {
-        e.preventDefault(); inputArea.style.borderColor = '';
-        var file = e.dataTransfer.files[0];
-        if (!file || file.type.indexOf('image') === -1) return;
-        if (file.size > 20 * 1024 * 1024) { alert('Image too large (max 20 MB)'); return; }
-        var reader = new FileReader();
-        reader.onload = function(ev) {
-            pendingImage = { file: file, dataUrl: ev.target.result };
-            imagePreviewThumb.src = ev.target.result;
-            imagePreviewName.textContent = file.name;
-            imagePreviewBar.classList.add('visible');
-        };
-        reader.readAsDataURL(file);
-    });
-
     function sendQuick(text) { userInput.value = text; sendMessage(); }
-
-    function dbStatToChat(type) {
-        var prompts = {
-            total: 'List all error patterns you have learned so far from the knowledge base. Summarize what you know about each one.',
-            noise: 'Show me all the error patterns you have classified as noise or known/expected issues. Explain why each one is safe to ignore.',
-            actionable: 'List all actionable error patterns from the knowledge base. For each one, explain the impact and what needs to be done.',
-            fixes: 'List all error patterns that have a known fix in the knowledge base. For each one, show the error pattern and the recommended fix/resolution.'
-        };
-        switchSection('logs');
-        setTimeout(function() { sendQuick(prompts[type] || prompts.total); }, 300);
-    }
 
     async function sendMessage() {
         var text = userInput.value.trim();
-        var hasImage = !!pendingImage;
-        if (!text && !hasImage || isStreaming) return;
+        if (!text || isStreaming) return;
         if (welcomeEl) welcomeEl.remove();
-
-        // Show user message with image thumbnail if attached
-        var userHtml = esc(text || '');
-        var imageDataUrl = null;
-        if (hasImage) {
-            imageDataUrl = pendingImage.dataUrl;
-            userHtml += '<img class="user-image" src="' + pendingImage.dataUrl + '" alt="attached image">';
-        }
-        var userEl = document.createElement('div');
-        userEl.className = 'message user';
-        userEl.innerHTML = userHtml;
-        chatArea.appendChild(userEl); scrollToBottom();
-
+        appendMessage(text, 'user');
         userInput.value = ''; userInput.style.height = 'auto';
-        var imageFile = hasImage ? pendingImage.file : null;
-        clearPendingImage();
         isStreaming = true; sendBtn.disabled = true;
 
         var typing = document.createElement('div');
         typing.className = 'typing-indicator';
-        typing.innerHTML = '<div class="typing-spinner"><div class="ring"></div><div class="brain">🧠</div></div>'
-            + '<div class="typing-text"><span class="typing-label">Echelon is analysing<span class="typing-dots"><span></span><span></span><span></span></span></span>'
-            + '<span class="typing-status"><span class="status-msg">Scanning logs</span></span></div>';
+        typing.innerHTML = '<span></span><span></span><span></span>';
         chatArea.appendChild(typing); scrollToBottom();
 
-        // Rotate status messages while waiting
-        var statusMsgs = ['Scanning logs','Querying knowledge base','Identifying error patterns','Correlating events','Performing root cause analysis','Preparing response'];
-        var statusIdx = 0;
-        var statusInterval = setInterval(function() {
-            statusIdx = (statusIdx + 1) % statusMsgs.length;
-            var el = typing.querySelector('.status-msg');
-            if (el) el.textContent = statusMsgs[statusIdx];
-        }, 2500);
-
-        // Ensure loading animation shows for at least 1.5s
-        var typingShownAt = Date.now();
-        var MIN_TYPING_MS = 1500;
-        function removeTyping() {
-            clearInterval(statusInterval);
-            if (typing.parentNode) typing.remove();
-        }
-
         try {
-            var res;
-            if (imageFile) {
-                var formData = new FormData();
-                formData.append('image', imageFile);
-                formData.append('message', text || '');
-                res = await fetch(API_BASE + '/chat/image', { method:'POST', body: formData });
-            } else {
-                res = await fetch(API_BASE + '/chat/stream', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:text}) });
-            }
-            if (!res.ok) {
-                var waited = Date.now() - typingShownAt;
-                if (waited < MIN_TYPING_MS) await new Promise(function(r){ setTimeout(r, MIN_TYPING_MS - waited); });
-                removeTyping();
-                appendMessage('Error: ' + res.status + ' ' + res.statusText, 'assistant'); return;
-            }
+            var res = await fetch(API_BASE + '/chat/stream', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:text}) });
+            typing.remove();
+            if (!res.ok) { appendMessage('Error: ' + res.status + ' ' + res.statusText, 'assistant'); return; }
 
             var reader = res.body.getReader();
             var decoder = new TextDecoder();
-            var fullText = '';
-            var pendingChunks = [];
-            var typingRemoved = false;
-
-            // Read all chunks; buffer them until the minimum typing time has elapsed
-            while (true) {
-                var chunk = await reader.read();
-                if (chunk.done) break;
-                var decoded = decoder.decode(chunk.value, { stream: true });
-                if (decoded) { fullText += decoded; pendingChunks.push(decoded); }
-                // Remove typing after minimum display time and first chunk
-                if (!typingRemoved && fullText.length > 0) {
-                    var waited = Date.now() - typingShownAt;
-                    if (waited < MIN_TYPING_MS) await new Promise(function(r){ setTimeout(r, MIN_TYPING_MS - waited); });
-                    removeTyping(); typingRemoved = true;
-                }
-            }
-
-            if (!typingRemoved) {
-                var waited = Date.now() - typingShownAt;
-                if (waited < MIN_TYPING_MS) await new Promise(function(r){ setTimeout(r, MIN_TYPING_MS - waited); });
-                removeTyping();
-            }
-
             var msgEl = appendMessage('', 'assistant');
-            var displayedLen = 0, renderTimer = null;
+            var fullText = '', displayedLen = 0, renderTimer = null;
             var CHAR_DELAY = 8;
 
             function renderNext() {
@@ -895,7 +485,13 @@
                     renderTimer = setTimeout(renderNext, CHAR_DELAY);
                 } else { renderTimer = null; }
             }
-            renderNext();
+
+            while (true) {
+                var chunk = await reader.read();
+                if (chunk.done) break;
+                fullText += decoder.decode(chunk.value, { stream: true });
+                if (!renderTimer) renderNext();
+            }
 
             await new Promise(function(resolve) {
                 function flush() {
@@ -909,8 +505,8 @@
                 flush();
             });
             if (!fullText) msgEl.innerHTML = '<em>No response generated.</em>';
-        } catch(err) { removeTyping(); appendMessage('Connection error: ' + err.message, 'assistant'); }
-        finally { removeTyping(); isStreaming = false; sendBtn.disabled = false; userInput.focus(); checkHealth(); }
+        } catch(err) { typing.remove(); appendMessage('Connection error: ' + err.message, 'assistant'); }
+        finally { isStreaming = false; sendBtn.disabled = false; userInput.focus(); checkHealth(); }
     }
 
     function appendMessage(text, role) {
@@ -1152,170 +748,6 @@
             // Small delay so page finishes rendering
             setTimeout(function() { sendQuick(askQ); }, 400);
         }
-    })();
-
-    // ── AI Databank ──────────────────────────────────────
-    var databankEntries = [];
-    var dbFilter = 'all';
-    var dbEntryType = 'noise';
-
-    async function loadDatabank() {
-        try {
-            var res = await fetch(API_BASE + '/api/databank');
-            var data = await res.json();
-            databankEntries = data.entries || [];
-            document.getElementById('db-total').textContent = data.total || 0;
-            document.getElementById('db-noise').textContent = data.noise_count || 0;
-            document.getElementById('db-actionable').textContent = data.actionable_count || 0;
-            document.getElementById('db-fixes').textContent = data.with_fix || 0;
-            renderDatabank();
-        } catch(e) {
-            document.getElementById('db-tbody').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:40px;">Failed to load databank</td></tr>';
-        }
-    }
-
-    function renderDatabank() {
-        var tbody = document.getElementById('db-tbody');
-        var empty = document.getElementById('db-empty');
-        var q = (document.getElementById('db-search').value || '').toLowerCase();
-        var filtered = databankEntries.filter(function(e) {
-            if (dbFilter === 'noise' && !['noise','expected','known_issue','resolved'].includes(e.type)) return false;
-            if (dbFilter === 'actionable' && !['actionable','critical','configuration','dependency'].includes(e.type)) return false;
-            if (q) {
-                var haystack = (e.pattern + ' ' + e.application + ' ' + e.note + ' ' + e.fix + ' ' + e.root_cause).toLowerCase();
-                if (haystack.indexOf(q) === -1) return false;
-            }
-            return true;
-        });
-        if (filtered.length === 0) {
-            tbody.innerHTML = '';
-            empty.style.display = 'block';
-            return;
-        }
-        empty.style.display = 'none';
-        tbody.innerHTML = filtered.map(function(e) {
-            var badgeClass = e.type || 'noise';
-            var pattern = escapeHtml(e.pattern || '').substring(0, 120);
-            var note = escapeHtml(e.root_cause || e.note || '').substring(0, 100);
-            var fix = escapeHtml(e.fix || '—').substring(0, 100);
-            var app = escapeHtml(e.application || '—');
-            var src = e.source === 'ai' ? '&#129302; AI' : '&#128100; User';
-            var seen = e.occurrence_count > 0 ? e.occurrence_count + 'x' : '—';
-            return '<tr>' +
-                '<td><span class="db-badge ' + badgeClass + '">' + escapeHtml(e.type) + '</span></td>' +
-                '<td class="db-pattern" title="' + escapeHtml(e.pattern) + '">' + pattern + '</td>' +
-                '<td>' + app + '</td>' +
-                '<td class="db-fix">' + note + '</td>' +
-                '<td class="db-fix">' + fix + '</td>' +
-                '<td>' + src + '</td>' +
-                '<td>' + seen + '</td>' +
-                '<td><button class="db-del-btn" onclick="deleteDbEntry(\'' + e.id + '\')" title="Delete">&#128465;</button></td>' +
-                '</tr>';
-        }).join('');
-    }
-
-    function escapeHtml(s) {
-        if (!s) return '';
-        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
-
-    function filterDatabank() { renderDatabank(); }
-
-    function setDbFilter(f, btn) {
-        dbFilter = f;
-        document.querySelectorAll('.db-filter-btn').forEach(function(b) { b.classList.remove('active'); });
-        btn.classList.add('active');
-        renderDatabank();
-    }
-
-    function openDbModal() {
-        document.getElementById('db-modal-overlay').classList.add('open');
-        document.getElementById('db-pattern').value = '';
-        document.getElementById('db-app').value = '';
-        document.getElementById('db-note').value = '';
-        document.getElementById('db-rootcause').value = '';
-        document.getElementById('db-fix').value = '';
-        document.getElementById('db-severity').value = 'medium';
-        setDbEntryType('noise', document.querySelector('.db-type-tab'));
-    }
-    function closeDbModal() {
-        document.getElementById('db-modal-overlay').classList.remove('open');
-    }
-
-    function setDbEntryType(type, tab) {
-        dbEntryType = type;
-        document.querySelectorAll('.db-type-tab').forEach(function(t) { t.classList.remove('active'); });
-        tab.classList.add('active');
-        var fixFields = document.getElementById('db-fix-fields');
-        if (type === 'actionable') {
-            fixFields.classList.add('show');
-        } else {
-            fixFields.classList.remove('show');
-        }
-    }
-
-    async function saveDbEntry() {
-        var pattern = document.getElementById('db-pattern').value.trim();
-        if (!pattern) { alert('Error pattern is required'); return; }
-        if (dbEntryType === 'actionable' && !document.getElementById('db-fix').value.trim()) {
-            alert('Fix / Resolution is required for actionable errors'); return;
-        }
-        var body = {
-            pattern: pattern,
-            entry_type: dbEntryType,
-            application: document.getElementById('db-app').value.trim(),
-            note: document.getElementById('db-note').value.trim(),
-            fix: document.getElementById('db-fix').value.trim(),
-            root_cause: document.getElementById('db-rootcause').value.trim(),
-            severity: document.getElementById('db-severity').value,
-        };
-        try {
-            var res = await fetch(API_BASE + '/api/databank', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(body),
-            });
-            if (!res.ok) { var err = await res.json(); alert(err.error || 'Failed to save'); return; }
-            closeDbModal();
-            loadDatabank();
-        } catch(e) {
-            alert('Error saving entry: ' + e.message);
-        }
-    }
-
-    async function deleteDbEntry(id) {
-        if (!confirm('Delete this entry from the AI databank?')) return;
-        try {
-            await fetch(API_BASE + '/api/databank/' + id, { method: 'DELETE' });
-            loadDatabank();
-        } catch(e) {
-            alert('Error deleting entry');
-        }
-    }
-
-    // ── Theme toggle ─────────────────────────────────────
-    function applyTheme(theme) {
-        document.documentElement.setAttribute('data-theme', theme);
-        var sun = document.getElementById('theme-icon-sun');
-        var moon = document.getElementById('theme-icon-moon');
-        if (theme === 'light') {
-            sun.style.display = 'none';
-            moon.style.display = 'block';
-        } else {
-            sun.style.display = 'block';
-            moon.style.display = 'none';
-        }
-    }
-    function toggleTheme() {
-        var current = document.documentElement.getAttribute('data-theme') || 'dark';
-        var next = current === 'dark' ? 'light' : 'dark';
-        localStorage.setItem('echelon-theme', next);
-        applyTheme(next);
-    }
-    // Load saved theme on startup
-    (function() {
-        var saved = localStorage.getItem('echelon-theme') || 'dark';
-        applyTheme(saved);
     })();
     </script>
 </body>

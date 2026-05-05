@@ -4,11 +4,10 @@ FastAPI server — REST + streaming endpoint for Echelon AI.
 
 from __future__ import annotations
 
-import base64
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, File, Form, Request, UploadFile
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -86,35 +85,6 @@ def chat_stream(req: ChatRequest):
 
     def generate():
         for chunk in agent.stream_chat(req.message):
-            yield chunk
-
-    return StreamingResponse(generate(), media_type="text/plain")
-
-
-_ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
-_MAX_IMAGE_SIZE = 20 * 1024 * 1024  # 20 MB
-
-
-@app.post("/chat/image")
-async def chat_image(
-    image: UploadFile = File(...),
-    message: str = Form(""),
-):
-    """Chat with an attached image. The image is sent to the vision model for analysis."""
-    from fastapi.responses import JSONResponse
-
-    if image.content_type not in _ALLOWED_IMAGE_TYPES:
-        return JSONResponse(status_code=400, content={"error": f"Unsupported image type: {image.content_type}. Allowed: png, jpeg, gif, webp"})
-
-    raw = await image.read()
-    if len(raw) > _MAX_IMAGE_SIZE:
-        return JSONResponse(status_code=400, content={"error": "Image too large (max 20 MB)"})
-
-    image_b64 = base64.b64encode(raw).decode("utf-8")
-    agent = _get_agent()
-
-    def generate():
-        for chunk in agent.stream_chat_with_image(message, image_b64, image.content_type):
             yield chunk
 
     return StreamingResponse(generate(), media_type="text/plain")
@@ -284,7 +254,7 @@ def api_commits(repo: str = "", hours: int = 24, top: int = 20):
 # ── UI ────────────────────────────────────────────────────────
 @app.get("/")
 def serve_ui():
-    return FileResponse(_STATIC_DIR / "index.html", headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+    return FileResponse(_STATIC_DIR / "index.html")
 
 
 @app.get("/dashboard")
@@ -330,169 +300,6 @@ def get_classifications(application: Optional[str] = None):
         })
 
     return summary
-
-
-# ── AI Databank API ───────────────────────────────────────────
-
-@app.get("/api/databank")
-def get_databank():
-    """Return all AI databank entries (classifications + user feedback) for the UI."""
-    agent = _get_agent()
-    kb = agent.knowledge_base
-
-    entries = []
-
-    # AI classifications
-    for it in kb.list_all_classifications():
-        meta = it["metadata"]
-        entries.append({
-            "id": it["id"],
-            "source": "ai",
-            "pattern": meta.get("error_pattern", "")[:300],
-            "type": meta.get("classification", "unknown"),
-            "severity": meta.get("severity", "unknown"),
-            "confidence": float(meta.get("confidence", "0")),
-            "application": meta.get("application", ""),
-            "root_cause": meta.get("root_cause", ""),
-            "fix": meta.get("suggested_action", ""),
-            "note": "",
-            "occurrence_count": int(meta.get("occurrence_count", "1")),
-            "created": meta.get("first_seen", ""),
-            "updated": meta.get("last_seen", ""),
-        })
-
-    # User feedback
-    for it in kb.list_all_feedback():
-        meta = it["metadata"]
-        entries.append({
-            "id": it["id"],
-            "source": "user",
-            "pattern": meta.get("error_pattern", "")[:300],
-            "type": meta.get("feedback_type", "unknown"),
-            "severity": "",
-            "confidence": 1.0,
-            "application": meta.get("application", ""),
-            "root_cause": "",
-            "fix": meta.get("resolution", ""),
-            "note": meta.get("user_note", ""),
-            "occurrence_count": 0,
-            "created": meta.get("created_at", ""),
-            "updated": meta.get("created_at", ""),
-        })
-
-    # Summary counts
-    noise_count = sum(1 for e in entries if e["type"] in ("noise", "expected", "known_issue"))
-    actionable_count = sum(1 for e in entries if e["type"] in ("actionable", "critical"))
-    with_fix = sum(1 for e in entries if e["fix"])
-
-    return {
-        "total": len(entries),
-        "noise_count": noise_count,
-        "actionable_count": actionable_count,
-        "with_fix": with_fix,
-        "entries": entries,
-    }
-
-
-class DatabankEntry(BaseModel):
-    pattern: str
-    entry_type: str  # 'noise', 'expected', 'actionable', 'known_issue', 'critical', etc.
-    application: str = ""
-    note: str = ""
-    fix: str = ""
-    root_cause: str = ""
-    severity: str = ""
-
-
-@app.post("/api/databank")
-def add_databank_entry(entry: DatabankEntry):
-    """Add a new entry to the AI databank (user-taught knowledge)."""
-    agent = _get_agent()
-    kb = agent.knowledge_base
-
-    pattern = entry.pattern.strip()
-    if not pattern:
-        from fastapi.responses import JSONResponse
-        return JSONResponse(status_code=400, content={"error": "Pattern is required"})
-
-    if len(pattern) > 1000:
-        from fastapi.responses import JSONResponse
-        return JSONResponse(status_code=400, content={"error": "Pattern too long (max 1000 chars)"})
-
-    # Determine if this is noise/valid or actionable/needs-fix
-    noise_types = {"noise", "expected", "known_issue", "resolved"}
-    action_types = {"actionable", "critical", "configuration", "dependency"}
-
-    if entry.entry_type in noise_types:
-        # Store as user feedback (noise/valid error)
-        doc_id = kb.store_feedback(
-            error_pattern=pattern,
-            feedback_type=entry.entry_type,
-            application=entry.application,
-            user_note=entry.note,
-            resolution=entry.fix,
-        )
-        # Also store as AI classification for dashboard enrichment
-        kb.store_classification(
-            error_pattern=pattern,
-            classification=entry.entry_type if entry.entry_type in ("noise", "known_issue") else "noise",
-            severity="noise" if entry.entry_type in ("noise", "expected") else "low",
-            confidence=1.0,
-            application=entry.application,
-            root_cause=entry.root_cause or entry.note,
-            suggested_action=entry.fix or "No action needed — marked as " + entry.entry_type,
-        )
-    elif entry.entry_type in action_types:
-        # Store as classification with fix
-        doc_id = kb.store_classification(
-            error_pattern=pattern,
-            classification=entry.entry_type,
-            severity=entry.severity or ("critical" if entry.entry_type == "critical" else "high"),
-            confidence=1.0,
-            application=entry.application,
-            root_cause=entry.root_cause,
-            suggested_action=entry.fix,
-        )
-        # Also store as user feedback
-        kb.store_feedback(
-            error_pattern=pattern,
-            feedback_type="critical" if entry.entry_type == "critical" else "known_issue",
-            application=entry.application,
-            user_note=entry.root_cause or entry.note,
-            resolution=entry.fix,
-        )
-    else:
-        # Generic feedback
-        doc_id = kb.store_feedback(
-            error_pattern=pattern,
-            feedback_type=entry.entry_type or "known_issue",
-            application=entry.application,
-            user_note=entry.note,
-            resolution=entry.fix,
-        )
-
-    return {"status": "ok", "id": doc_id, "message": f"Stored as '{entry.entry_type}'"}
-
-
-@app.delete("/api/databank/{entry_id}")
-def delete_databank_entry(entry_id: str):
-    """Remove a databank entry by ID (tries both collections)."""
-    agent = _get_agent()
-    kb = agent.knowledge_base
-
-    deleted = kb.delete_feedback(entry_id)
-    if not deleted:
-        # Try classifications collection
-        try:
-            kb._classifications.delete(ids=[entry_id])
-            deleted = True
-        except Exception:
-            pass
-
-    if deleted:
-        return {"status": "ok", "message": f"Deleted entry {entry_id}"}
-    from fastapi.responses import JSONResponse
-    return JSONResponse(status_code=404, content={"error": f"Entry {entry_id} not found"})
 
 
 # ── Dashboard Data API ────────────────────────────────────────
@@ -798,34 +605,73 @@ def dashboard_data(minutes: int = 1440, app: Optional[str] = None, env: Optional
     }
 
 
+# ── Teams Bot Endpoint ────────────────────────────────────────
+@app.post("/api/teams/messages")
+async def teams_messages(request: Request):
+    """Receives messages from the Azure Bot Service (Teams bot).
+
+    Requires: pip install botbuilder-core botbuilder-schema
+    Env vars: TEAMS_BOT_ID, TEAMS_BOT_PASSWORD
+    """
+    try:
+        from botbuilder.core import (
+            BotFrameworkAdapter,
+            BotFrameworkAdapterSettings,
+            TurnContext,
+        )
+        from botbuilder.schema import Activity
+    except ImportError:
+        return {"error": "botbuilder-core not installed. Run: pip install botbuilder-core"}
+
+    from echelon.config import settings
+
+    bot_settings = BotFrameworkAdapterSettings(
+        app_id=getattr(settings, "teams_bot_id", ""),
+        app_password=getattr(settings, "teams_bot_password", ""),
+    )
+    adapter = BotFrameworkAdapter(bot_settings)
+
+    async def on_turn(turn_context: TurnContext):
+        user_text = turn_context.activity.text or ""
+        if not user_text.strip():
+            return
+
+        # Send typing indicator
+        typing_activity = Activity(type="typing")
+        await turn_context.send_activity(typing_activity)
+
+        # Get agent response
+        agent = _get_agent()
+        response = agent.chat(user_text)
+        await turn_context.send_activity(response)
+
+    body = await request.json()
+    activity = Activity().deserialize(body)
+    auth_header = request.headers.get("Authorization", "")
+
+    await adapter.process_activity(activity, auth_header, on_turn)
+    return {}
+
+
 app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
 
 # ── Start digest scheduler on app startup ─────────────────────────
 
 @app.on_event("startup")
-def _start_background_services():
+def _start_digest_scheduler():
     from echelon.config import settings
-    agent = _get_agent()
-
-    # Daily digest scheduler
     if settings.smtp_host:
         from echelon.digest import start_scheduler
+        agent = _get_agent()
         base_url = f"http://{settings.api_host}:{settings.api_port}"
         start_scheduler(agent.log_source, base_url)
 
-    # Proactive error alerter (monitors prod logs → AI RCA → email)
-    if settings.alert_enabled:
-        from echelon.alerter import start_alerter
-        start_alerter(agent)
-
 
 @app.on_event("shutdown")
-def _stop_background_services():
+def _stop_digest_scheduler():
     from echelon.digest import stop_scheduler
     stop_scheduler()
-    from echelon.alerter import stop_alerter
-    stop_alerter()
 
 
 def run_server():

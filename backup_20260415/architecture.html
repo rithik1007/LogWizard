@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Echelon AI — Architecture</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0b10;
+            --card: #161922;
+            --border: #232640;
+            --text: #eaecf5;
+            --muted: #9ba1b8;
+            --accent: #6c63ff;
+            --purple: #a78bfa;
+            --blue: #60a5fa;
+            --green: #34d399;
+            --orange: #fbbf24;
+            --red: #f87171;
+            --cyan: #22d3ee;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; padding:40px 24px; overflow-x:hidden; -webkit-font-smoothing:antialiased; }
+
+        /* Ambient glow */
+        body::before { content:''; position:fixed; top:-200px; left:50%; transform:translateX(-50%); width:800px; height:400px; background:radial-gradient(ellipse,rgba(108,99,255,0.08),transparent 70%); pointer-events:none; z-index:0; }
+
+        .container { max-width:1100px; margin:0 auto; position:relative; z-index:1; }
+
+        /* Header */
+        .arch-header { text-align:center; margin-bottom:56px; }
+        .arch-header .badge { display:inline-flex; align-items:center; gap:6px; padding:5px 16px; background:rgba(108,99,255,0.1); border:1px solid rgba(108,99,255,0.2); border-radius:20px; font-size:11px; color:var(--accent); font-weight:600; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:16px; }
+        .arch-header .badge::before { content:''; width:6px; height:6px; background:var(--accent); border-radius:50%; animation:pulse 2s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        .arch-header h1 { font-size:36px; font-weight:800; letter-spacing:-1px; background:linear-gradient(135deg,#fff,#a78bfa,#6c63ff); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin-bottom:10px; }
+        .arch-header p { font-size:16px; color:var(--muted); max-width:600px; margin:0 auto; line-height:1.7; }
+
+        /* Flow layout */
+        .flow { display:flex; flex-direction:column; align-items:center; gap:0; }
+
+        /* Tier labels */
+        .tier { width:100%; margin-bottom:32px; }
+        .tier-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:var(--muted); margin-bottom:16px; padding-left:4px; }
+
+        /* Cards grid */
+        .cards { display:flex; justify-content:center; gap:20px; flex-wrap:wrap; }
+
+        /* Component card */
+        .card {
+            background:var(--card); border:1px solid var(--border); border-radius:16px;
+            padding:28px 24px; width:200px; text-align:center; position:relative;
+            transition:all 0.3s cubic-bezier(.4,0,.2,1);
+        }
+        .card:hover { transform:translateY(-4px); border-color:rgba(108,99,255,0.3); box-shadow:0 12px 40px rgba(0,0,0,0.4), 0 0 30px rgba(108,99,255,0.08); }
+        .card-icon { width:56px; height:56px; border-radius:14px; display:flex; align-items:center; justify-content:center; margin:0 auto 14px; font-size:28px; }
+        .card h3 { font-size:14px; font-weight:700; margin-bottom:6px; letter-spacing:-0.2px; }
+        .card p { font-size:11.5px; color:var(--muted); line-height:1.55; }
+
+        /* Card accent colors */
+        .card.user .card-icon { background:rgba(96,165,250,0.12); }
+        .card.brain .card-icon { background:rgba(108,99,255,0.12); }
+        .card.tool .card-icon { background:rgba(167,139,250,0.12); }
+        .card.splunk .card-icon { background:rgba(52,211,153,0.12); }
+        .card.azdevops .card-icon { background:rgba(96,165,250,0.12); }
+        .card.kb .card-icon { background:rgba(251,191,36,0.12); }
+        .card.email .card-icon { background:rgba(248,113,113,0.12); }
+        .card.api .card-icon { background:rgba(34,211,238,0.12); }
+
+        /* Connectors */
+        .connector { display:flex; flex-direction:column; align-items:center; gap:0; margin:12px 0; }
+        .connector .line { width:2px; height:28px; background:linear-gradient(to bottom,var(--border),var(--accent),var(--border)); border-radius:1px; }
+        .connector .arrow { color:var(--accent); font-size:14px; line-height:1; }
+        .connector .label { font-size:10px; font-weight:600; color:var(--accent); letter-spacing:0.5px; text-transform:uppercase; margin-top:2px; }
+
+        /* Horizontal connector set */
+        .h-connectors { display:flex; justify-content:center; gap:80px; margin:12px 0; }
+        .h-conn { display:flex; flex-direction:column; align-items:center; }
+        .h-conn .line { width:2px; height:24px; background:linear-gradient(to bottom,var(--border),rgba(108,99,255,0.5)); border-radius:1px; }
+        .h-conn .arrow { color:var(--accent); font-size:12px; }
+
+        /* Wide card for brain */
+        .card.wide { width:360px; }
+
+        /* Footer */
+        .arch-footer { text-align:center; margin-top:56px; padding-top:28px; border-top:1px solid var(--border); }
+        .arch-footer p { font-size:12px; color:var(--muted); }
+        .arch-footer a { color:var(--accent); text-decoration:none; font-weight:600; }
+        .arch-footer a:hover { text-decoration:underline; }
+
+        /* Legend */
+        .legend { display:flex; justify-content:center; gap:24px; flex-wrap:wrap; margin-top:20px; }
+        .legend-item { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--muted); }
+        .legend-dot { width:10px; height:10px; border-radius:3px; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            body { padding:24px 16px; }
+            .arch-header h1 { font-size:26px; }
+            .arch-header p { font-size:14px; }
+            .cards { gap:12px; }
+            .card { width:160px; padding:20px 16px; }
+            .card-icon { width:44px; height:44px; font-size:22px; border-radius:11px; }
+            .card h3 { font-size:13px; }
+            .card p { font-size:10.5px; }
+            .card.wide { width:280px; }
+            .h-connectors { gap:40px; }
+        }
+        @media (max-width: 480px) {
+            .cards { flex-direction:column; align-items:center; }
+            .card { width:100%; max-width:280px; }
+            .card.wide { width:100%; max-width:280px; }
+            .h-connectors { gap:20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="arch-header">
+            <div class="badge">System Architecture</div>
+            <h1>Echelon AI Platform</h1>
+            <p>An intelligent, agentic log analysis platform that investigates production incidents, monitors CI/CD pipelines, and delivers daily digests.</p>
+        </div>
+
+        <div class="flow">
+
+            <!-- TIER 1: User -->
+            <div class="tier">
+                <div class="tier-label">&#x1F464; Interface Layer</div>
+                <div class="cards">
+                    <div class="card user">
+                        <div class="card-icon">&#128104;&#8205;&#128187;</div>
+                        <h3>Engineer</h3>
+                        <p>Asks questions in natural language via the chat UI</p>
+                    </div>
+                    <div class="card api">
+                        <div class="card-icon">&#127760;</div>
+                        <h3>Web Interface</h3>
+                        <p>Real-time chat, build dashboards, and digest subscriptions</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Connector -->
+            <div class="connector">
+                <div class="line"></div>
+                <div class="arrow">&#9660;</div>
+                <div class="label">REST API</div>
+            </div>
+
+            <!-- TIER 2: Server -->
+            <div class="tier">
+                <div class="tier-label">&#9889; Application Layer</div>
+                <div class="cards">
+                    <div class="card api wide">
+                        <div class="card-icon">&#9889;</div>
+                        <h3>FastAPI Server</h3>
+                        <p>Handles HTTP requests, streaming responses, and serves the frontend. Orchestrates all communication.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Connector -->
+            <div class="connector">
+                <div class="line"></div>
+                <div class="arrow">&#9660;</div>
+                <div class="label">Invokes</div>
+            </div>
+
+            <!-- TIER 3: AI Agent -->
+            <div class="tier">
+                <div class="tier-label">&#129504; Intelligence Layer</div>
+                <div class="cards">
+                    <div class="card brain wide">
+                        <div class="card-icon">&#129302;</div>
+                        <h3>AI Agent</h3>
+                        <p>Powered by Azure OpenAI (GPT-4o) + LangGraph. Uses ReAct reasoning to pick the right tools, chain multiple actions, and synthesize answers.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Connector to tools -->
+            <div class="connector">
+                <div class="line"></div>
+                <div class="arrow">&#9660;</div>
+                <div class="label">Selects &amp; Calls Tools</div>
+            </div>
+
+            <!-- TIER 4: Tools -->
+            <div class="tier">
+                <div class="tier-label">&#128295; Tool Layer &mdash; 24 Tools</div>
+                <div class="cards">
+                    <div class="card tool">
+                        <div class="card-icon">&#128270;</div>
+                        <h3>Log Queries</h3>
+                        <p>Search errors, warnings, and patterns across applications</p>
+                    </div>
+                    <div class="card tool">
+                        <div class="card-icon">&#128736;</div>
+                        <h3>Build Analysis</h3>
+                        <p>Fetch builds, timelines, failed tasks, and logs</p>
+                    </div>
+                    <div class="card tool">
+                        <div class="card-icon">&#128209;</div>
+                        <h3>Commits</h3>
+                        <p>Get recent code changes tied to deployments</p>
+                    </div>
+                    <div class="card tool">
+                        <div class="card-icon">&#128218;</div>
+                        <h3>Knowledge Base</h3>
+                        <p>Store and recall past incident solutions</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fan-out connectors -->
+            <div class="h-connectors">
+                <div class="h-conn"><div class="line"></div><div class="arrow">&#9660;</div></div>
+                <div class="h-conn"><div class="line"></div><div class="arrow">&#9660;</div></div>
+                <div class="h-conn"><div class="line"></div><div class="arrow">&#9660;</div></div>
+                <div class="h-conn"><div class="line"></div><div class="arrow">&#9660;</div></div>
+            </div>
+
+            <!-- TIER 5: Data Sources -->
+            <div class="tier">
+                <div class="tier-label">&#128451; Data Sources</div>
+                <div class="cards">
+                    <div class="card splunk">
+                        <div class="card-icon">&#128994;</div>
+                        <h3>Splunk</h3>
+                        <p>Production logs queried via REST API</p>
+                    </div>
+                    <div class="card azdevops">
+                        <div class="card-icon">&#9729;&#65039;</div>
+                        <h3>Azure DevOps</h3>
+                        <p>CI/CD pipelines, builds, commits via REST API</p>
+                    </div>
+                    <div class="card kb">
+                        <div class="card-icon">&#128423;</div>
+                        <h3>ChromaDB</h3>
+                        <p>Vector store for incident knowledge &amp; memory</p>
+                    </div>
+                    <div class="card email">
+                        <div class="card-icon">&#128231;</div>
+                        <h3>SMTP Server</h3>
+                        <p>Sends daily email digests to subscribers</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Legend -->
+        <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--blue);"></div>Interface</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--cyan);"></div>Server</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--accent);"></div>AI Agent</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--purple);"></div>Tools</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--green);"></div>Data Sources</div>
+        </div>
+
+        <!-- Footer -->
+        <div class="arch-footer">
+            <p><a href="/">&#8592; Back to Echelon AI</a></p>
+        </div>
+    </div>
+</body>
+</html>

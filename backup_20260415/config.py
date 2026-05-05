@@ -38,14 +38,6 @@ class Settings(BaseSettings):
     teams_bot_id: str = ""
     teams_bot_password: str = ""
 
-    # Proactive Alerting — monitors prod logs and sends AI RCA emails on errors
-    alert_enabled: bool = True            # Enable/disable the background monitor
-    alert_check_interval: int = 600       # Seconds between prod log checks (default 10 min)
-    alert_lookback_minutes: int = 10       # How far back to query each check cycle
-    alert_error_threshold: int = 1        # Min errors to trigger an alert
-    alert_cooldown_minutes: int = 30      # Don't re-alert for same error pattern within this window
-    alert_environments: str = "prod"      # Comma-separated envs to monitor (default: prod only)
-
     # Daily Digest Email
     smtp_host: str = ""
     smtp_port: int = 587

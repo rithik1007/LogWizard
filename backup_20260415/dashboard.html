@@ -291,46 +291,6 @@
             .charts-grid { grid-template-columns: 1fr; }
             .kpi-row { grid-template-columns: repeat(2, 1fr); }
         }
-
-        /* ── Theme toggle button ─── */
-        .theme-toggle {
-            background: var(--bg-card); border: 1px solid var(--border); color: var(--text-muted);
-            cursor: pointer; padding: 7px; border-radius: var(--radius-sm); display: flex;
-            align-items: center; justify-content: center; transition: all 0.2s; width: 34px; height: 34px;
-        }
-        .theme-toggle:hover { color: var(--text-primary); border-color: var(--accent); background: var(--accent-glow); }
-        .theme-toggle svg { width: 16px; height: 16px; }
-
-        /* ── Light Mode ──────────── */
-        [data-theme="light"] {
-            --bg-primary: #f5f6fa;
-            --bg-secondary: #ffffff;
-            --bg-card: #ffffff;
-            --border: #d8dce6;
-            --border-hover: #b0b6c8;
-            --text-primary: #1a1d2a;
-            --text-secondary: #4a5068;
-            --text-muted: #7a8098;
-            --accent: #6c63ff;
-            --accent-hover: #5a52e0;
-            --accent-glow: rgba(108,99,255,0.08);
-            --error: #dc2626;
-            --error-bg: rgba(220,38,38,0.08);
-            --warn: #d97706;
-            --warn-bg: rgba(217,119,6,0.08);
-            --success: #16a34a;
-            --success-bg: rgba(22,163,74,0.08);
-            --info: #2563eb;
-            --inactive: #94a3b8;
-            --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
-            --shadow-md: 0 4px 16px rgba(0,0,0,0.08);
-        }
-        [data-theme="light"] .kpi-card { box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
-        [data-theme="light"] .chart-card { box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
-        [data-theme="light"] .app-card { box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
-        [data-theme="light"] .error-table tr:hover td { background: rgba(108,99,255,0.04); }
-        [data-theme="light"] .env-card { box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        [data-theme="light"] .logo h1 { -webkit-text-fill-color: #4a40e0; }
     </style>
 </head>
 <body>
@@ -367,14 +327,6 @@
                 <option value="10080">Last 7 Days</option>
             </select>
             <button class="refresh-btn" onclick="loadDashboard()">⟳ Refresh</button>
-            <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode" id="theme-btn">
-                <svg id="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
-                    <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-                </svg>
-                <svg id="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-                </svg>
-            </button>
             <span class="last-updated" id="last-updated"></span>
         </div>
     </header>
@@ -708,31 +660,6 @@
             </div>
         `).join('');
     }
-
-    // ── Theme toggle ─────────────────────────────────────
-    function applyTheme(theme) {
-        document.documentElement.setAttribute('data-theme', theme);
-        var sun = document.getElementById('theme-icon-sun');
-        var moon = document.getElementById('theme-icon-moon');
-        if (theme === 'light') {
-            sun.style.display = 'none';
-            moon.style.display = 'block';
-        } else {
-            sun.style.display = 'block';
-            moon.style.display = 'none';
-        }
-    }
-    function toggleTheme() {
-        var current = document.documentElement.getAttribute('data-theme') || 'dark';
-        var next = current === 'dark' ? 'light' : 'dark';
-        localStorage.setItem('echelon-theme', next);
-        applyTheme(next);
-    }
-    // Load saved theme (shared with main UI via localStorage)
-    (function() {
-        var saved = localStorage.getItem('echelon-theme') || 'dark';
-        applyTheme(saved);
-    })();
 
     // Auto-refresh every 24 hours (86 400 000 ms)
     loadDashboard();

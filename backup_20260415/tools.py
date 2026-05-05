@@ -653,82 +653,6 @@ def get_classification_summary(application: str = "") -> str:
 
 
 @tool
-def reason_and_reflect(
-    observations: str,
-    hypothesis_1: str,
-    hypothesis_1_evidence_for: str,
-    hypothesis_1_evidence_against: str,
-    hypothesis_2: str = "",
-    hypothesis_2_evidence_for: str = "",
-    hypothesis_2_evidence_against: str = "",
-    hypothesis_3: str = "",
-    selected_hypothesis: str = "",
-    reasoning: str = "",
-    confidence: str = "medium",
-    what_could_change_my_mind: str = "",
-) -> str:
-    """Structure your thinking before presenting a root cause analysis.
-
-    Use this tool when you have gathered evidence and need to reason through
-    competing hypotheses. This is your "thinking pad" — it forces you to
-    consider alternatives and self-critique before drawing conclusions.
-
-    WHEN TO USE:
-    - After gathering logs/errors and before presenting your analysis
-    - When the root cause is not immediately obvious
-    - When you see multiple possible causes
-    - When analyzing complex error cascades or intermittent issues
-    - When analyzing images/screenshots with error content
-
-    Args:
-        observations: Key facts from the logs/data. Be specific — quote timestamps,
-            error messages, counts, and patterns.
-        hypothesis_1: Your primary hypothesis for the root cause.
-        hypothesis_1_evidence_for: Specific evidence supporting hypothesis 1.
-        hypothesis_1_evidence_against: Evidence that weakens hypothesis 1 (be honest).
-        hypothesis_2: An alternative hypothesis (always consider at least one alternative).
-        hypothesis_2_evidence_for: Evidence supporting hypothesis 2.
-        hypothesis_2_evidence_against: Evidence against hypothesis 2.
-        hypothesis_3: A third hypothesis if applicable.
-        selected_hypothesis: Which hypothesis you're going with and why.
-        reasoning: Your step-by-step reasoning chain from observations to conclusion.
-        confidence: high, medium, or low — how confident are you?
-        what_could_change_my_mind: What additional evidence would make you reconsider?
-    """
-    sections = []
-    sections.append("=== STRUCTURED REASONING ===\n")
-    sections.append(f"OBSERVATIONS:\n{observations}\n")
-
-    sections.append(f"HYPOTHESIS 1: {hypothesis_1}")
-    sections.append(f"   Evidence for: {hypothesis_1_evidence_for}")
-    sections.append(f"   Evidence against: {hypothesis_1_evidence_against}\n")
-
-    if hypothesis_2:
-        sections.append(f"HYPOTHESIS 2: {hypothesis_2}")
-        sections.append(f"   Evidence for: {hypothesis_2_evidence_for}")
-        sections.append(f"   Evidence against: {hypothesis_2_evidence_against}\n")
-
-    if hypothesis_3:
-        sections.append(f"HYPOTHESIS 3: {hypothesis_3}\n")
-
-    if selected_hypothesis:
-        sections.append(f"SELECTED: {selected_hypothesis}\n")
-
-    if reasoning:
-        sections.append(f"REASONING CHAIN:\n{reasoning}\n")
-
-    sections.append(f"CONFIDENCE: {confidence}")
-
-    if what_could_change_my_mind:
-        sections.append(f"WOULD RECONSIDER IF: {what_could_change_my_mind}")
-
-    sections.append("\n=== END REASONING ===")
-    sections.append("Now present your analysis to the user incorporating this structured thinking.")
-
-    return "\n".join(sections)
-
-
-@tool
 def analyze_error_context(
     error_keyword: str,
     minutes: int = 30,
@@ -1344,7 +1268,6 @@ ALL_TOOLS = [
     query_logs,
     query_recent_errors,
     get_log_statistics,
-    reason_and_reflect,
     analyze_error_context,
     query_error_clusters,
     search_known_errors,

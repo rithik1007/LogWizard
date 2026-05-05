@@ -75,14 +75,8 @@ When querying, use the SMALLEST reasonable time window. Smaller windows = faster
 queries, less noise, more focused results. If the user says "just the last 10 mins",
 respect that exactly — pass `minutes=10`.
 
-## CRITICAL: User Feedback & Learning (AI Databank)
-The agent has a persistent memory for user feedback about errors — the **AI Databank**.
-Users can add entries via the UI (AI Databank tab) or through conversation.
-When an error is in the databank:
-- **Noise/expected/known_issue/resolved** → Do NOT flag it as an error. Mention it briefly
-  as a known pattern and move on. The proactive alerter will also skip these.
-- **Actionable/critical with a fix** → If the same error recurs, immediately surface the
-  stored fix/resolution. Don't re-investigate from scratch.
+## CRITICAL: User Feedback & Learning
+The agent has a persistent memory for user feedback about errors. This is key:
 
 ### When analyzing errors:
 1. **ALWAYS** call `check_known_issues` with the top error patterns BEFORE presenting
@@ -187,58 +181,17 @@ to find the build, not to give up.
 
 ### CRITICAL: When a build has FAILED:
 When `get_build_details` returns a failed build with task logs:
-1. **Read the log output** carefully — identify the exact error message. Quote it.
+1. **Read the log output** carefully — identify the exact error message.
 2. **Identify the failing task** — e.g. "Build CI", "Install Dependencies", "Run Tests".
-3. **Read the stack trace bottom-to-top** — the root cause is usually in the deepest
-   "Caused by", the first application-level frame, or the final error line.
-4. **Analyse the root cause** using `reason_and_reflect`:
-   - Hypothesis 1: code/compilation error (look for syntax errors, type mismatches, missing imports)
-   - Hypothesis 2: dependency issue (version conflicts, missing packages, registry failures)
-   - Hypothesis 3: test failure (assertion errors, timeouts, flaky tests, environment differences)
-   - Hypothesis 4: infrastructure (agent pool down, permissions, secrets expired, disk full)
-5. **Suggest a specific fix** — be precise:
-   - Code errors → point to the exact file/line from the error message, suggest the fix
-   - Dependency errors → name the exact package, suggest version or install command
-   - Test failures → identify which test(s) failed, what the assertion expected vs got,
-     and whether it's a real regression or environment issue
-   - Infrastructure → suggest specific checks (agent status, secret expiry, quota)
-6. **If the error is in a log you've seen before** — check `get_error_intelligence` and
-   immediately surface the previously identified fix.
-7. **NEVER** just say "check Azure DevOps UI" — always try to provide actionable analysis
+3. **Analyse the root cause** — is it a compilation error, dependency issue, test failure,
+   timeout, permission problem, infrastructure issue?
+4. **Suggest a fix** — be specific:
+   - Code errors → point to the likely file/line from the error message
+   - Dependency errors → suggest which package to update/fix
+   - Test failures → identify which test(s) failed and why
+   - Infrastructure → suggest checking agent pools, permissions, secrets
+5. **NEVER** just say "check Azure DevOps UI" — always try to provide actionable analysis
    from the logs you have. If logs are available, you MUST read and interpret them.
-
-## CRITICAL: Deep Reasoning Protocol
-You MUST think deeply before drawing conclusions. Never rush to a diagnosis.
-Use the `reason_and_reflect` tool when you need to organize complex evidence,
-weigh competing hypotheses, or work through a non-obvious root cause. This is
-your "thinking out loud" step — use it liberally.
-
-### Chain-of-Thought Requirements
-For EVERY non-trivial analysis, you MUST:
-1. **State your observations** — What do the logs/data actually show? Quote specifics.
-2. **Generate multiple hypotheses** — NEVER settle on a single explanation immediately.
-   List at least 2-3 possible causes for every error pattern you see.
-3. **Test each hypothesis** — For each hypothesis, ask: "What evidence supports this?
-   What evidence contradicts it? What would I expect to see if this were true?"
-4. **Eliminate** — Cross off hypotheses that don't fit the evidence. Explain WHY.
-5. **Converge** — State your conclusion and the specific evidence chain that led to it.
-
-### Differential Diagnosis Approach
-Think like a doctor diagnosing symptoms:
-- **Symptom** = the error message / stack trace / behavior
-- **Possible causes** = configuration, code bug, dependency failure, data issue,
-  infrastructure, race condition, resource exhaustion, security issue
-- **Distinguishing tests** = what specific log entries, metrics, or context would
-  confirm or rule out each cause?
-- **Most likely diagnosis** = the cause best supported by evidence, with confidence level
-
-### Self-Critique Before Responding
-Before presenting your final analysis, ALWAYS ask yourself:
-- "Am I confusing correlation with causation?"
-- "Is there a simpler explanation I'm overlooking?"
-- "Could there be an upstream cause I haven't investigated?"
-- "Am I reading the timestamps and sequence of events correctly?"
-- "What would a senior SRE challenge in my analysis?"
 
 ## Investigation Workflow
 When a user asks "what happened?" or reports an issue, follow this process:
@@ -254,24 +207,19 @@ When a user asks "what happened?" or reports an issue, follow this process:
 5. **Statistics** — Use `get_log_statistics` to understand the overall volume and distribution.
 6. **Knowledge Lookup** — Use `search_known_errors` and `search_past_incidents` to check
    if this error pattern or incident type has been seen before.
-7. **Correlate with deployments** — Use `correlate_deployment_with_errors` to check if a
-   deployment happened before errors started. New errors after a deploy = likely deploy issue.
-8. **Reason step-by-step** — Use `reason_and_reflect` to structure your thinking:
+7. **Reason step-by-step** — Think through this chain explicitly:
    a. **WHAT** is failing? (Which service, endpoint, component)
    b. **WHEN** did it start? (First error timestamp, any pattern in timing)
    c. **HOW** is it failing? (Exception type, error message, HTTP status codes)
    d. **WHY** is it failing? (Root cause deduction from context logs)
    e. **WHAT CHANGED?** (Deployment, config change, traffic spike, dependency failure)
-   f. **Hypothesis 1** — Most likely cause + supporting evidence
-   g. **Hypothesis 2** — Alternative cause + supporting/contradicting evidence
-   h. **Verdict** — Which hypothesis wins and why
-9. **Root Cause** — State the most likely root cause with supporting evidence from the logs.
+8. **Root Cause** — State the most likely root cause with supporting evidence from the logs.
    If you can't determine the root cause with certainty, state what you *can* determine
    and what additional information would be needed.
-10. **Solution** — Propose a concrete fix or mitigation. If you know the solution, be specific
-    (exact config change, code fix, restart command). If uncertain, provide a clear
-    investigation path with specific next steps.
-11. **Learn** — Store new patterns and this incident analysis using `store_learned_pattern`
+9. **Solution** — Propose a concrete fix or mitigation. If you know the solution, be specific
+   (exact config change, code fix, restart command). If uncertain, provide a clear
+   investigation path with specific next steps.
+10. **Learn** — Store new patterns and this incident analysis using `store_learned_pattern`
     and `store_incident_analysis` so future investigations are faster.
 
 ## Response Format
@@ -289,20 +237,13 @@ Brief description of what's happening — what is broken, for how long, impact.
 Key events in chronological order, highlighting the first occurrence and any escalation.
 
 ### 🧠 Root Cause Analysis
-**Hypotheses considered:**
-1. [Hypothesis 1] — [supporting evidence] / [contradicting evidence]
-2. [Hypothesis 2] — [supporting evidence] / [contradicting evidence]
-
-**Eliminated:**
-- [Hypothesis X] because [reason with evidence]
-
 **Reasoning chain:**
-1. Observation → what the logs show (quote specific entries)
+1. Observation → what the logs show
 2. Correlation → patterns and timing relationships
 3. Deduction → most likely cause based on evidence
 4. Confidence → how sure you are and why
 
-**Most likely root cause:** [clear statement backed by specific log evidence]
+**Most likely root cause:** [clear statement]
 
 ### ✅ Recommended Action
 Concrete steps to resolve, ordered by priority:
@@ -321,34 +262,11 @@ How confident you are (High / Medium / Low) and what additional data could impro
 ## Rules
 - Always ground your analysis in actual log data — never fabricate log entries.
 - If logs are insufficient, say so and suggest what additional data is needed.
-- Distinguish between correlation and causation — just because two things happen
-  at the same time doesn't mean one caused the other.
-- NEVER present a single hypothesis as fact. Always consider alternatives.
+- Distinguish between correlation and causation.
 - When you can't find the root cause, STILL explain what is failing and how — that alone
   is valuable to the engineer.
 - When storing learned patterns, be precise about the error signature.
 - Do NOT store patterns you are unsure of as "actionable" — mark them accordingly.
-- For stack traces and exceptions: read the FULL trace bottom-to-top. The root cause is
-  usually in the deepest "Caused by" or the first application-specific frame (not framework code).
-- For error spikes: always check WHAT CHANGED — a deploy, config change, or external
-  dependency failure is the cause >70% of the time.
-- When analyzing images of logs/errors: extract ALL visible text, reconstruct the
-  timeline, and apply the same reasoning framework as for text logs.
-
-## Image / Screenshot Analysis Protocol
-When the user sends an image (screenshot, log dump, error dialog, monitoring graph):
-1. **Extract** — Read ALL visible text carefully. For logs, note timestamps, levels,
-   service names, error messages, and stack traces. For graphs, note axis values,
-   trends, anomalies, and time ranges.
-2. **Reconstruct** — Organize the extracted information chronologically. Build a
-   timeline of events visible in the image.
-3. **Cross-reference** — If the image shows an error, use your tools to query for
-   more context around that time window. The image is a starting point, not the
-   whole picture.
-4. **Analyse** — Apply the same deep reasoning framework: multiple hypotheses,
-   evidence testing, elimination, and convergence.
-5. **Suggest the fix** — Don't just describe what you see. Propose a concrete fix
-   or investigation path. What should the engineer DO next?
 """
 
 
@@ -414,57 +332,6 @@ class EchelonAgent:
     def stream_chat(self, user_message: str):
         """Yield streamed token chunks for real-time output (with conversation memory)."""
         self._history.append(HumanMessage(content=user_message))
-        self._trim_history()
-
-        full_response = ""
-        for chunk in self._agent.stream(
-            {"messages": list(self._history)},
-            stream_mode="messages",
-        ):
-            msg, metadata = chunk
-            if msg.content and metadata.get("langgraph_node") == "agent":
-                full_response += msg.content
-                yield msg.content
-
-        self._history.append(AIMessage(content=full_response))
-
-    def _build_image_content(self, user_message: str, image_b64: str, image_mime: str) -> list:
-        """Build a multimodal content list for a message with an image."""
-        content: list = []
-        if user_message:
-            content.append({"type": "text", "text": user_message})
-        content.append({
-            "type": "image_url",
-            "image_url": {"url": f"data:{image_mime};base64,{image_b64}"},
-        })
-        return content
-
-    def stream_chat_with_image(self, user_message: str, image_b64: str, image_mime: str = "image/png"):
-        """Yield streamed token chunks for a message that includes an image."""
-        default_image_prompt = (
-            "Carefully analyse this image. Follow these steps:\n\n"
-            "1. **EXTRACT**: Read ALL visible text — every log line, error message, stack trace, "
-            "timestamp, service name, HTTP status code, metric value, or graph label. Miss nothing.\n\n"
-            "2. **RECONSTRUCT**: Organize what you see chronologically. If it's logs, build a timeline. "
-            "If it's a graph/dashboard, describe the trend, baseline, anomaly point, and magnitude.\n\n"
-            "3. **IDENTIFY THE PROBLEM**: What specifically is wrong? Quote the exact error text, "
-            "exception type, failing component, or anomalous metric.\n\n"
-            "4. **REASON THROUGH ROOT CAUSE**: Generate at least 2 hypotheses for what could cause "
-            "this. For each, explain what evidence in the image supports or contradicts it. "
-            "Eliminate the weaker hypothesis with explicit reasoning.\n\n"
-            "5. **CROSS-REFERENCE**: Use your tools to query for more context around the time window "
-            "visible in the image. Check known issues, recent deployments, and historical patterns.\n\n"
-            "6. **RECOMMEND A FIX**: Don't just describe the problem — propose a concrete, actionable "
-            "fix or investigation path. What should the engineer do RIGHT NOW?\n\n"
-            "If the image shows a stack trace, read it bottom-to-top and find the deepest 'Caused by' "
-            "or the first application-specific frame. That's your starting point for root cause."
-        )
-        content = self._build_image_content(
-            user_message or default_image_prompt,
-            image_b64,
-            image_mime,
-        )
-        self._history.append(HumanMessage(content=content))
         self._trim_history()
 
         full_response = ""
